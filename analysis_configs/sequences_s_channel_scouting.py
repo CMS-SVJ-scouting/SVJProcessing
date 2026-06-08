@@ -229,8 +229,10 @@ def add_veto_leptons_branches(events):
         events["Electron_isVeto"] = as_type(ak.Array([[]] * n_events), int)
         events["Muon_isVeto"] = as_type(ak.Array([[]] * n_events), int)
     else:
-        events["Electron_isVeto"] = as_type(obj.is_veto_electron(electrons), int)
-        events["Muon_isVeto"] = as_type(obj.is_veto_muon(muons), int)
+        is_good_electron = (obj.is_veto_electron(electrons))
+        is_good_muon = (obj.is_veto_muon(muons))
+        events["Electron_isVeto"] = is_good_electron 
+        events["Muon_isVeto"] = is_good_muon
     return events
 
 

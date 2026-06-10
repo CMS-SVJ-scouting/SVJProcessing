@@ -747,8 +747,12 @@ def apply_scale_variations(events,is_nano=False, multiply_by_pu_weight=False):
         variation_up = ak.max(events.ScaleWeights[:, [i for i in range(9) if i not in (5, 7)]], axis=-1)
         variation_down = ak.min(events.ScaleWeights[:, [i for i in range(9) if i not in (5, 7)]], axis=-1)
     elif is_nano:
-        variation_up = ak.max(events.LHEScaleWeight[:, [i for i in range(9) if i not in (5, 7)]], axis=-1)
-        variation_down = ak.min(events.LHEScaleWeight[:, [i for i in range(9) if i not in (5, 7)]], axis=-1)
+        if "LHEScaleWeight" in events.fields:
+            variation_up = ak.max(events.LHEScaleWeight[:, [i for i in range(9) if i not in (5, 7)]], axis=-1)
+            variation_down = ak.min(events.LHEScaleWeight[:, [i for i in range(9) if i not in (5, 7)]], axis=-1)
+        if "ScaleWeights" in events.fields:
+            variation_up = ak.max(events.ScaleWeights[:, [i for i in range(9) if i not in (5, 7)]], axis=-1)
+            variation_down = ak.min(events.ScaleWeights[:, [i for i in range(9) if i not in (5, 7)]], axis=-1)
     else:
         raise NotImplementedError()
 
@@ -780,7 +784,12 @@ def apply_pdf_variations(events, is_nano=False, multiply_by_pu_weight=False):
         pdf_variations = events.PDFweights.to_numpy()
         
     elif is_nano:
-       pdf_variations = events.LHEPdfWeight.to_numpy()
+       if "LHEPdfWeight" in events.fields:
+           pdf_variations = events.LHEPdfWeight.to_numpy()
+       elif "PDFweights" in events.fields:
+           pdf_variations = events.PDFFweights.to_numpy()
+       else:
+           raise ValueError("No PDF weight branch found in events, cannot apply PDF variations.")
 
     else:
         raise NotImplementedError()

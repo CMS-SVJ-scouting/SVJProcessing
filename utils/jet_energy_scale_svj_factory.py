@@ -23,7 +23,7 @@ class SVJCustomJESCalculator:
     def _build(self):
         
         jets = {}
-        jets["event_rho"] = ak.broadcast_arrays(self.events.fixedGridRhoFastjetAll, self.events[f"{self.jet_coll}_pt"])[0]
+        jets["event_rho"] = ak.broadcast_arrays(self.events["rho"], self.events[f"{self.jet_coll}_pt"])[0]
         jets["pt_reco"] = self.events[f"{self.jet_coll}_pt"]
 
         if "FatJet" in self.jet_coll:
@@ -31,9 +31,9 @@ class SVJCustomJESCalculator:
             jets["pt_gen"] = gen_matching_tools.get_matched_gen_jets(jets["pt_reco"], 
                                                                     self.events[f"{self.jet_coll}_eta"], 
                                                                     self.events[f"{self.jet_coll}_phi"], 
-                                                                    self.events[f"GenJetAK8_pt"], 
-                                                                    self.events[f"GenJetAK8_eta"], 
-                                                                    self.events[f"GenJetAK8_phi"], 
+                                                                    self.events[f"GenFatJet_pt"], 
+                                                                    self.events[f"GenFatJet_eta"], 
+                                                                    self.events[f"GenFatJet_phi"], 
                                                                     self.events[f"FatJet_genJetAK8Idx"],
                                                                     m_genMatch_dR2max,
                                                                     self.std_jer_key.replace("NOJEC",""),

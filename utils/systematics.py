@@ -689,7 +689,7 @@ def calc_jerc_variations_PFNano(
     if jet_coll == "Jet":
         # For T1 MET propagation, use CorrT1METJet if available (AK4 only), else Jet
         t1met_coll = "CorrT1METJet" if "CorrT1METJet_pt" in events.fields else jet_coll
-        if t1met_coll != jet_coll:
+        if (t1met_coll != jet_coll) and ("jer" not in variation):
             # Compute JERCs on CorrT1METJet separately for MET propagation only
             t1met_jets_input = make_jets_for_jerc(events, t1met_coll, rho, correction_key)
             t1met_jets_corrected = jet_factory[correction_key].build(t1met_jets_input, {})

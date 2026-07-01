@@ -76,42 +76,42 @@ dataset_names=(
     # low HT bins don't survive the pre-selection, can be emitted
     # #QCD_HT100to200
     # #QCD_HT200to300 
-    # QCD_HT700to1000
-    # QCD_HT1000to1500
-    # QCD_HT1500to2000
-    # QCD_HT2000toInf
-    # QCD_HT300to500
-    # QCD_HT500to700
+    QCD_HT700to1000
+    QCD_HT1000to1500
+    QCD_HT1500to2000
+    QCD_HT2000toInf
+    QCD_HT300to500
+    QCD_HT500to700
 
-    # #
-    # # TTJets
-    # #
-    # TTJets_TuneCP5
-    # # TTJets_SingleLeptFromT
-    # # TTJets_SingleLeptFromTbar
-    # # TTJets_DiLept
-    # TTJets_HT-600to800
-    # TTJets_HT-800to1200
-    # TTJets_HT-1200to2500
-    # TTJets_HT-2500toInf
+    #
+    # TTJets
+    #
+    TTJets_TuneCP5
+    # TTJets_SingleLeptFromT
+    # TTJets_SingleLeptFromTbar
+    # TTJets_DiLept
+    TTJets_HT-600to800
+    TTJets_HT-800to1200
+    TTJets_HT-1200to2500
+    TTJets_HT-2500toInf
 
-    # #
-    # # WJets
-    # #
-    # WJetsToLNu_HT-400To600
-    # WJetsToLNu_HT-600To800
-    # WJetsToLNu_HT-800To1200
-    # WJetsToLNu_HT-1200To2500
-    # WJetsToLNu_HT-2500ToInf
+    #
+    # WJets
+    #
+    WJetsToLNu_HT-400To600
+    WJetsToLNu_HT-600To800
+    WJetsToLNu_HT-800To1200
+    WJetsToLNu_HT-1200To2500
+    WJetsToLNu_HT-2500ToInf
 
-    # #
-    # # ZJets
-    # #
-    # ZJetsToNuNu_HT-400To600
-    # ZJetsToNuNu_HT-600To800
-    # ZJetsToNuNu_HT-800To1200
-    # ZJetsToNuNu_HT-1200To2500
-    # ZJetsToNuNu_HT-2500ToInf
+    #
+    # ZJets
+    #
+    ZJetsToNuNu_HT-400To600
+    ZJetsToNuNu_HT-600To800
+    ZJetsToNuNu_HT-800To1200
+    ZJetsToNuNu_HT-1200To2500
+    ZJetsToNuNu_HT-2500ToInf
 
     #
     # Data
@@ -121,10 +121,10 @@ dataset_names=(
     # Run2017E
     # Run2017F
 
-    Run2018A
-    Run2018B
-    Run2018C
-    Run2018D
+    # Run2018A
+    # Run2018B
+    # Run2018C
+    # Run2018D
 )
 
 check_number_of_events() {

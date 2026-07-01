@@ -47,6 +47,7 @@ def _map_run_to_jec_era(run, year):
     return _RUN_ERA_TO_JEC_ERA.get((year_era, run), run)
 
 
+
 def calc_jec_variation(
         pt, eta, phi, energy,
         jer_factor, jec_unc, orig_idx,
@@ -422,14 +423,16 @@ def apply_jercs_PFNano(
     jet_coll: str,
     jerc_variations: dict,
     jerc_cache: dict,
+    apply_jer: bool = True,
+    apply_residuals: bool = True,
     ) -> ak.Array:
-    
+
     jet_factory = jerc_variations[f'{jet_coll.lower()}_factory']
 
-    # calculate all variables needed as inputs, apply both JEC and JER
     # JER smearing only applies to MC; for data use NOJER key (JEC residuals only)
-    jerc_key_label = "NOJER" if "data" in run.lower() else ""
-    # jerc_key_label = "NOJER" 
+    jerc_key_label = "NOJER" if ("data" in run.lower() or not apply_jer) else ""
+    if not apply_residuals and "data" in run.lower():
+        jerc_key_label += "NORES"
 
     #build jet corrections
     correction_key = None
@@ -467,13 +470,14 @@ def propagate_jecs_to_MET_PFNano(
                 jet_coll: str,
                 jerc_variations: dict,
                 jerc_cache: dict,
+                apply_residuals: bool = True,
                 ) -> ak.Array:
-    
+
     jet_factory = jerc_variations[f'{jet_coll.lower()}_factory']
 
 
     # calculate all variables needed as inputs
-    jerc_key_label = "NOJER"
+    jerc_key_label = "NOJERNORES" if not apply_residuals else "NOJER"
 
 
     #build jet corrections
@@ -488,7 +492,7 @@ def propagate_jecs_to_MET_PFNano(
 
     # Check if using scouting data (rho) or standard NanoAOD (fixedGridRhoFastjetAll)
     rho = events.rho if "rho" in events.fields else events.fixedGridRhoFastjetAll
-    
+
     # Use CorrT1METJet for T1 MET jets if available, otherwise fall back to jet_coll
     t1met_coll = "CorrT1METJet" if "CorrT1METJet_pt" in events.fields else jet_coll
 

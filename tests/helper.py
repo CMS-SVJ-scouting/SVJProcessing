@@ -36,7 +36,9 @@ def test_command(bash_command):
     print(bash_command)
 
     print("\nRunning...")
-    run_bash_command(bash_command)
+    result = subprocess.run(bash_command, shell=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"Command failed with exit code {result.returncode}")
 
     print("Done!\n")
 

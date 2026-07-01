@@ -27,6 +27,8 @@ class Skimmer(processor.ProcessorABC):
             nano_aod=False,
             pfnano_corr_file=None,
             apply_scouting_jec=True,
+            apply_jer=True,
+            apply_residuals=True,
         ):
 
         self.process_function = process_function
@@ -35,6 +37,8 @@ class Skimmer(processor.ProcessorABC):
         self.nano_aod = nano_aod
         self.pfnano_corr_file = pfnano_corr_file
         self.apply_scouting_jec = apply_scouting_jec
+        self.apply_jer = apply_jer
+        self.apply_residuals = apply_residuals
         if is_mc:
             self.run = "mc"
         elif run_era:
@@ -100,7 +104,7 @@ class Skimmer(processor.ProcessorABC):
 
 
         if self.nano_aod:
-            events = skimmer_utils.apply_variation_pfnano(events, variation=self.variation, year=self.year, run=self.run, pfnano_sys_file=self.pfnano_corr_file)
+            events = skimmer_utils.apply_variation_pfnano(events, variation=self.variation, year=self.year, run=self.run, pfnano_sys_file=self.pfnano_corr_file, apply_jer=self.apply_jer, apply_residuals=self.apply_residuals)
         else:
             events = skimmer_utils.apply_variation(events, self.variation)
 
@@ -241,6 +245,18 @@ def add_coffea_args(parser):
     parser.add_argument(
         '--disable_scouting_jec',
         help='Disable custom scouting JEC residual corrections before official PFNano variations',
+        default=False,
+        action='store_true',
+    )
+    parser.add_argument(
+        '--disable_jer',
+        help='Disable JER smearing for MC (forces NOJER correction key)',
+        default=False,
+        action='store_true',
+    )
+    parser.add_argument(
+        '--disable_residuals',
+        help='Disable L2L3Residual corrections for data (forces NORES correction key)',
         default=False,
         action='store_true',
     )
@@ -403,6 +419,8 @@ def __prepare_uproot_job_kwargs_from_coffea_args(args):
             nano_aod=args.nano_aod or args.nano_aod_scouting,
             pfnano_corr_file=args.pfnano_corrections_file,
             apply_scouting_jec=not args.disable_scouting_jec,
+            apply_jer=not args.disable_jer,
+            apply_residuals=not args.disable_residuals,
         ),
         "executor": executor,
         "executor_args": executor_args,

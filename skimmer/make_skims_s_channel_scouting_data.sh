@@ -31,10 +31,14 @@ pfnano_corrections_file=/work/mgais/SVJProcessing/data/corrections_2026-04-28_18
 #/work/mgais/JEC_SVJProcessing/data/corrections_2026-03-12_00-06-24_jme_corr.coffea
 #/work/mgais/JEC_SVJProcessing/data/corrections_2025-11-21_15-01-21_jme_corr.coffea
 
-year=2018
+year=2017
 
 add_weights_variations=0  # 1 to add PDF/scale weight variations, 0 else
 apply_scouting_jec=1      # 1 to apply custom scouting residual JECs, 0 to disable
+apply_residuals=0         # 0 to skip L2L3Residual JEC corrections for data (test); 1 for standard
+
+# Coffea corrections file: use the NORES-capable file when residuals are disabled
+pfnano_corrections_file_nores=/work/mgais/SVJProcessing/data/corrections_nores_all_corr.coffea
 
 variations=(
     nominal
@@ -50,19 +54,19 @@ variations=(
 
 # Output directory for nominal samples - no variation of the uncertainties
 #output_directory=root://cmseos.fnal.gov//store/user/lpcdarkqcd/tchannel_UL/${year}/Full/PrivateSkims/${variation}
-output_directory=root://cmsdcache-kit-disk.gridka.de:1094//store/user/mgaisdor/SVJScouting_skims_v2
+output_directory=root://cmsdcache-kit-disk.gridka.de:1094//store/user/mgaisdor/SVJScouting_skims_v2_noResiduals
 
 
 dataset_names=(
-    # Run2017C
-    # Run2017D
-    # Run2017E
-    # Run2017F
+    Run2017C
+    Run2017D
+    Run2017E
+    Run2017F
 
-    Run2018A
-    Run2018B
-    Run2018C
-    Run2018D
+    # Run2018A
+    # Run2018B
+    # Run2018C
+    # Run2018D
 )
 
 
@@ -125,6 +129,13 @@ make_skims() {
                     else
                         scouting_jec_flag="--disable_scouting_jec"
                     fi
+                    if [ "${apply_residuals}" == "1" ]; then
+                        residuals_flag=""
+                        corrfile_to_use=${pfnano_corrections_file}
+                    else
+                        residuals_flag="--disable_residuals"
+                        corrfile_to_use=${pfnano_corrections_file_nores}
+                    fi
                     if [ "${variation}" == "nominal" ]; then
                         variation_flag=""
                     else
@@ -135,7 +146,7 @@ make_skims() {
                     else
                         weight_variation_flag=""
                     fi
-                    python skim.py -i ${input_files} -o ${output_file_tmp} -p ${module} -pd ${dataset_name} -y ${year} -nano_scout -corrfile ${pfnano_corrections_file} -e ${EXECUTOR} -port ${PORT} -n ${N_WORKERS} -c ${CHUNK_SIZE} --memory ${MEMORY} --cores ${CORES} -pn_tagger ${variation_flag} ${weight_variation_flag} ${scouting_jec_flag} ${run_era_flag} #--skip_bad_files
+                    python skim.py -i ${input_files} -o ${output_file_tmp} -p ${module} -pd ${dataset_name} -y ${year} -nano_scout -corrfile ${corrfile_to_use} -e ${EXECUTOR} -port ${PORT} -n ${N_WORKERS} -c ${CHUNK_SIZE} --memory ${MEMORY} --cores ${CORES} -pn_tagger ${variation_flag} ${weight_variation_flag} ${scouting_jec_flag} ${residuals_flag} ${run_era_flag} #--skip_bad_files
                     #python skim.py -i ${input_files} -o ${output_file_tmp} -p ${module} -pd ${dataset_name} -y ${year} -nano_scout -e ${EXECUTOR} -port ${PORT} -n ${N_WORKERS} -c ${CHUNK_SIZE} --memory ${MEMORY} --cores ${CORES} -pn_tagger ${variation_flag[@]}
                     #python skim.py -i ${input_files} -o ${output_file_tmp} -p ${module} -pd ${dataset_name} -y ${year} -nano_scout -mc -xsec ${xsec} -corrfile ${pfnano_corrections_file} -e ${EXECUTOR} -port ${PORT} -n ${N_WORKERS} -c ${CHUNK_SIZE} --memory ${MEMORY} --cores ${CORES} -pn_tagger ${variation_flag} ${weight_variation_flag}
                     xrdcp -f ${output_file_tmp} ${output_file}

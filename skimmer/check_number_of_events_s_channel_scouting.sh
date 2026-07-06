@@ -20,49 +20,49 @@ dataset_names=(
     # Signals
     #
 
-    # s-channel_mMed-500_mDark-20_rinv-0.3
-    # #s-channel_mMed-500_mDark-20_rinv-0.5
-    # #s-channel_mMed-500_mDark-20_rinv-0.7
+    s-channel_mMed-500_mDark-20_rinv-0.3
+    s-channel_mMed-500_mDark-20_rinv-0.5
+    s-channel_mMed-500_mDark-20_rinv-0.7
 
-    # s-channel_mMed-600_mDark-20_rinv-0.3
-    # #s-channel_mMed-600_mDark-20_rinv-0.5
-    # #s-channel_mMed-600_mDark-20_rinv-0.7
+    s-channel_mMed-600_mDark-20_rinv-0.3
+    s-channel_mMed-600_mDark-20_rinv-0.5
+    s-channel_mMed-600_mDark-20_rinv-0.7
 
-    # s-channel_mMed-700_mDark-20_rinv-0.3
-    # #s-channel_mMed-700_mDark-20_rinv-0.5
-    # #s-channel_mMed-700_mDark-20_rinv-0.7
+    s-channel_mMed-700_mDark-20_rinv-0.3
+    s-channel_mMed-700_mDark-20_rinv-0.5
+    s-channel_mMed-700_mDark-20_rinv-0.7
 
-    # s-channel_mMed-800_mDark-20_rinv-0.3
-    # #s-channel_mMed-800_mDark-20_rinv-0.5
-    # #s-channel_mMed-800_mDark-20_rinv-0.7
+    s-channel_mMed-800_mDark-20_rinv-0.3
+    s-channel_mMed-800_mDark-20_rinv-0.5
+    s-channel_mMed-800_mDark-20_rinv-0.7
 
-    # s-channel_mMed-900_mDark-20_rinv-0.3
-    # #s-channel_mMed-900_mDark-20_rinv-0.5
-    # #s-channel_mMed-900_mDark-20_rinv-0.7
+    s-channel_mMed-900_mDark-20_rinv-0.3
+    s-channel_mMed-900_mDark-20_rinv-0.5
+    s-channel_mMed-900_mDark-20_rinv-0.7
 
-    # s-channel_mMed-1000_mDark-20_rinv-0.3
-    # #s-channel_mMed-1000_mDark-20_rinv-0.5
-    # #s-channel_mMed-1000_mDark-20_rinv-0.7
+    s-channel_mMed-1000_mDark-20_rinv-0.3
+    s-channel_mMed-1000_mDark-20_rinv-0.5
+    s-channel_mMed-1000_mDark-20_rinv-0.7
 
-    # s-channel_mMed-1100_mDark-20_rinv-0.3
-    # #s-channel_mMed-1100_mDark-20_rinv-0.5
-    # #s-channel_mMed-1100_mDark-20_rinv-0.7
+    s-channel_mMed-1100_mDark-20_rinv-0.3
+    s-channel_mMed-1100_mDark-20_rinv-0.5
+    s-channel_mMed-1100_mDark-20_rinv-0.7
 
-    # s-channel_mMed-1200_mDark-20_rinv-0.3
-    # #s-channel_mMed-1200_mDark-20_rinv-0.5
-    # #s-channel_mMed-1200_mDark-20_rinv-0.7
+    s-channel_mMed-1200_mDark-20_rinv-0.3
+    s-channel_mMed-1200_mDark-20_rinv-0.5
+    s-channel_mMed-1200_mDark-20_rinv-0.7
 
-    # s-channel_mMed-1300_mDark-20_rinv-0.3
-    # #s-channel_mMed-1300_mDark-20_rinv-0.5
-    # #s-channel_mMed-1300_mDark-20_rinv-0.7
+    s-channel_mMed-1300_mDark-20_rinv-0.3
+    s-channel_mMed-1300_mDark-20_rinv-0.5
+    s-channel_mMed-1300_mDark-20_rinv-0.7
 
-    # s-channel_mMed-1400_mDark-20_rinv-0.3
-    # #s-channel_mMed-1400_mDark-20_rinv-0.5
-    # #s-channel_mMed-1400_mDark-20_rinv-0.7
+    s-channel_mMed-1400_mDark-20_rinv-0.3
+    s-channel_mMed-1400_mDark-20_rinv-0.5
+    s-channel_mMed-1400_mDark-20_rinv-0.7
 
-    # s-channel_mMed-1500_mDark-20_rinv-0.3
-    # #s-channel_mMed-1500_mDark-20_rinv-0.5
-    # #s-channel_mMed-1500_mDark-20_rinv-0.7
+    s-channel_mMed-1500_mDark-20_rinv-0.3
+    s-channel_mMed-1500_mDark-20_rinv-0.5
+    s-channel_mMed-1500_mDark-20_rinv-0.7
 
     # s-channel_mMed-3000_mDark-20_rinv-0.3
     # s-channel_mMed-3000_mDark-20_rinv-0.5
@@ -121,10 +121,10 @@ dataset_names=(
     # Run2017E
     # Run2017F
 
-    Run2018A
-    Run2018B
-    Run2018C
-    Run2018D
+    # Run2018A
+    # Run2018B
+    # Run2018C
+    # Run2018D
 )
 
 check_number_of_events() {

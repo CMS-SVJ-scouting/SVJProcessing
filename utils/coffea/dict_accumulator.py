@@ -14,16 +14,14 @@ class DictAccumulator(processor.AccumulatorABC):
         elif len(self.value.keys()) == 0:
             self.value = other.value
         else:
-            if set(other.value.keys()) != set(self.value.keys()):
-                missing_in_self = set(other.value.keys()) - set(self.value.keys())
-                missing_in_other = set(self.value.keys()) - set(other.value.keys())
-                raise ValueError(
-                    f"DictAccumulator keys mismatch!\n"
-                    f"Keys in other but not in self: {missing_in_self}\n"
-                    f"Keys in self but not in other: {missing_in_other}\n"
-                    f"Self keys: {set(self.value.keys())}\n"
-                    f"Other keys: {set(other.value.keys())}"
-                )
+            # Keys are not required to match: e.g. norm_lund's keys are per
+            # n-prong (lundWeightNom_8_sumw, lundWeightNom_10_sumw, ...) and
+            # different chunks/files can have different prong multiplicities
+            # present. Keys present in both are summed; keys present in only
+            # one side are carried over as-is.
             for key in other.value.keys():
-                self.value[key] += other.value[key]
+                if key in self.value:
+                    self.value[key] += other.value[key]
+                else:
+                    self.value[key] = other.value[key]
 

@@ -505,7 +505,7 @@ def main():
             if 'lundWeight' not in f: continue
             if f == 'lundWeightNom': continue
             # take jet level weights to event level, compute stat and pt variations etc
-            print("Event fields: ", f)
+            #print("Event fields: ", f)
             lund_post(events, f, doTestDist=args.distortion)
             if f in lund_weights.fields: 
                 lund_post(lund_weights, f, doTestDist=args.distortion)

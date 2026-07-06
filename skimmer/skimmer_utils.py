@@ -815,6 +815,34 @@ def apply_ps_variations(events,is_nano=False,ps_type="ISR", multiply_by_pu_weigh
     return __add_weight_variations(events, variation_up, variation_down, f"PS{ps_type}", computed_nominal_weights=None, multiply_by_pu_weights=multiply_by_pu_weight)
 
     
+def apply_pu_nominal_weight(events, year, pfnano_sys_file=None, is_nano=False):
+    """Multiply the nominal event weight by the nominal PU weight.
+
+    Always applied (independent of whether "pu" is requested in weight_variations)
+    since apply_pu_variations() and __add_weight_variations() (multiply_by_pu_weights=True
+    branch) rely on the f"{weight_name}PU" branch already being present in events.
+    """
+
+    if is_nano:
+        if "Pileup_nTrueInt" in events.fields:
+            pu_nTrueInt = events.Pileup_nTrueInt
+        elif "Pileup_nPU" in events.fields:
+            pu_nTrueInt = events.Pileup_nPU
+        else:
+            raise RuntimeError("Cannot compute PU nominal weight: neither 'Pileup_nTrueInt' nor 'Pileup_nPU' field found in events.")
+        variations_factory = load(pfnano_sys_file)
+
+    else:
+        raise NotImplementedError()
+
+    pu_nom, _, _ = variations_factory["get_pu_weight"](year, pu_nTrueInt)
+
+    weight_name = "Weight" if is_tree_maker(events) else "genWeight"
+    events[f"{weight_name}PU"] = events[weight_name] * pu_nom
+
+    return events
+
+
 def apply_pu_variations(events, year, pfnano_sys_file=None , is_nano=False, multiply_by_pu_weight=False):
 
     # Normalize the array of pdf weights by the first entry
@@ -878,7 +906,7 @@ def apply_lund_variation(events, var, all_events):
 
     #Lund variations are already added to the events
     if not var.startswith("lund"):
-        print("Adding Lund variations to events: ", "lundWeight"+var+"Up", "lundWeight"+var+"Down")
+        #print("Adding Lund variations to events: ", "lundWeight"+var+"Up", "lundWeight"+var+"Down")
         # Create the new branches
         events[f"{weight_name}{var}Up"] = weights_up
         events[f"{weight_name}{var}Down"] = weights_down

@@ -2,7 +2,7 @@
 
 MEMORY=4GB
 CORES=1
-CHUNK_SIZE=5000 #10000 or 1000
+CHUNK_SIZE=15000 #10000 or 1000
 N_WORKERS=40
 #EXECUTOR=dask/etpcondor   # HTCondor at KIT ETP
 PORT=3719 # port for dask scheduler, needs to be opened by admins
@@ -31,16 +31,18 @@ pfnano_corrections_file=/work/mgais/SVJProcessing/data/corrections_2026-04-28_18
 
 year=2018
 
-add_weights_variations=0  # 1 to add PDF/scale weight variations, 0 else
+add_weights_variations=1  # 1 to add PDF/scale weight variations, 0 else
 apply_scouting_jec=1      # 1 to apply custom scouting JECs, 0 to disable
 
 variations=(
     nominal
     # JEC/JER variations
-    #jec_up
-    #jec_down
-    #jer_up
-    #jer_down
+    jec_up
+    jec_down
+    jer_up
+    jer_down
+    SVJjec_up
+    SVJjec_down
     # Unclustered energy variations
     #unclEn_up
     #unclEn_down
@@ -48,7 +50,7 @@ variations=(
 
 # Output directory for nominal samples - no variation of the uncertainties
 #output_directory=root://cmseos.fnal.gov//store/user/lpcdarkqcd/tchannel_UL/${year}/Full/PrivateSkims/${variation}
-output_directory=root://cmsdcache-kit-disk.gridka.de:1094//store/user/mgaisdor/SVJScouting_skims_v2
+output_directory=root://cmsdcache-kit-disk.gridka.de:1094//store/user/mgaisdor/SVJScouting_skims_full_sys
 
 
 dataset_names=(
@@ -56,98 +58,98 @@ dataset_names=(
     # Signals
     #
 
-    # s-channel_mMed-500_mDark-20_rinv-0.3
-    # # s-channel_mMed-500_mDark-20_rinv-0.5
-    # # s-channel_mMed-500_mDark-20_rinv-0.7
+    s-channel_mMed-500_mDark-20_rinv-0.3
+    s-channel_mMed-500_mDark-20_rinv-0.5
+    s-channel_mMed-500_mDark-20_rinv-0.7
 
-    # s-channel_mMed-600_mDark-20_rinv-0.3
-    # # s-channel_mMed-600_mDark-20_rinv-0.5
-    # # s-channel_mMed-600_mDark-20_rinv-0.7
+    s-channel_mMed-600_mDark-20_rinv-0.3
+    s-channel_mMed-600_mDark-20_rinv-0.5
+    s-channel_mMed-600_mDark-20_rinv-0.7
 
-    # s-channel_mMed-700_mDark-20_rinv-0.3
-    # # s-channel_mMed-700_mDark-20_rinv-0.5
-    # # s-channel_mMed-700_mDark-20_rinv-0.7
+    s-channel_mMed-700_mDark-20_rinv-0.3
+    s-channel_mMed-700_mDark-20_rinv-0.5
+    s-channel_mMed-700_mDark-20_rinv-0.7
 
-    # s-channel_mMed-800_mDark-20_rinv-0.3
-    # # s-channel_mMed-800_mDark-20_rinv-0.5
-    # # s-channel_mMed-800_mDark-20_rinv-0.7
+    s-channel_mMed-800_mDark-20_rinv-0.3
+    s-channel_mMed-800_mDark-20_rinv-0.5
+    s-channel_mMed-800_mDark-20_rinv-0.7
 
-    # s-channel_mMed-900_mDark-20_rinv-0.3
-    # # s-channel_mMed-900_mDark-20_rinv-0.5
-    # # s-channel_mMed-900_mDark-20_rinv-0.7
+    s-channel_mMed-900_mDark-20_rinv-0.3
+    s-channel_mMed-900_mDark-20_rinv-0.5
+    s-channel_mMed-900_mDark-20_rinv-0.7
 
-    # s-channel_mMed-1000_mDark-20_rinv-0.3
-    # # s-channel_mMed-1000_mDark-20_rinv-0.5
-    # # s-channel_mMed-1000_mDark-20_rinv-0.7
+    s-channel_mMed-1000_mDark-20_rinv-0.3
+    s-channel_mMed-1000_mDark-20_rinv-0.5
+    s-channel_mMed-1000_mDark-20_rinv-0.7
 
-    # s-channel_mMed-1100_mDark-20_rinv-0.3
-    # # s-channel_mMed-1100_mDark-20_rinv-0.5
-    # # s-channel_mMed-1100_mDark-20_rinv-0.7
+    s-channel_mMed-1100_mDark-20_rinv-0.3
+    s-channel_mMed-1100_mDark-20_rinv-0.5
+    s-channel_mMed-1100_mDark-20_rinv-0.7
 
-    # s-channel_mMed-1200_mDark-20_rinv-0.3
-    # # s-channel_mMed-1200_mDark-20_rinv-0.5
-    # # s-channel_mMed-1200_mDark-20_rinv-0.7
+    s-channel_mMed-1200_mDark-20_rinv-0.3
+    s-channel_mMed-1200_mDark-20_rinv-0.5
+    s-channel_mMed-1200_mDark-20_rinv-0.7
 
-    # s-channel_mMed-1300_mDark-20_rinv-0.3
-    # # s-channel_mMed-1300_mDark-20_rinv-0.5
-    # # s-channel_mMed-1300_mDark-20_rinv-0.7
+    s-channel_mMed-1300_mDark-20_rinv-0.3
+    s-channel_mMed-1300_mDark-20_rinv-0.5
+    s-channel_mMed-1300_mDark-20_rinv-0.7
 
-    # s-channel_mMed-1400_mDark-20_rinv-0.3
-    # # s-channel_mMed-1400_mDark-20_rinv-0.5
-    # # s-channel_mMed-1400_mDark-20_rinv-0.7
+    s-channel_mMed-1400_mDark-20_rinv-0.3
+    s-channel_mMed-1400_mDark-20_rinv-0.5
+    s-channel_mMed-1400_mDark-20_rinv-0.7
 
-    # s-channel_mMed-1500_mDark-20_rinv-0.3
-    # # s-channel_mMed-1500_mDark-20_rinv-0.5
-    # # s-channel_mMed-1500_mDark-20_rinv-0.7
+    s-channel_mMed-1500_mDark-20_rinv-0.3
+    s-channel_mMed-1500_mDark-20_rinv-0.5
+    s-channel_mMed-1500_mDark-20_rinv-0.7
 
     # s-channel_mMed-3000_mDark-20_rinv-0.3
     # s-channel_mMed-3000_mDark-20_rinv-0.5
     # s-channel_mMed-3000_mDark-20_rinv-0.7
     
-    #
-    # Backgrounds
-    #
-    # QCD
-    #
-    # low HT bins < 300 don't survive the pre-selection, can be emitted
-    #QCD_HT100to200
-    #QCD_HT200to300 
-    QCD_HT700to1000
-    QCD_HT1000to1500
-    QCD_HT1500to2000
-    QCD_HT2000toInf
-    QCD_HT300to500
-    QCD_HT500to700
+    # #
+    # # Backgrounds
+    # #
+    # # QCD
+    # #
+    # # low HT bins < 300 don't survive the pre-selection, can be emitted
+    # #QCD_HT100to200
+    # #QCD_HT200to300 
+    # QCD_HT700to1000
+    # QCD_HT1000to1500
+    # QCD_HT1500to2000
+    # QCD_HT2000toInf
+    # QCD_HT300to500
+    # QCD_HT500to700
 
-    #
-    # TTJets
-    #
-    TTJets_TuneCP5
-    # TTJets_SingleLeptFromT
-    # TTJets_SingleLeptFromTbar
-    # TTJets_DiLept
-    TTJets_HT-600to800
-    TTJets_HT-800to1200
-    TTJets_HT-1200to2500
-    TTJets_HT-2500toInf
+    # #
+    # # TTJets
+    # #
+    # TTJets_TuneCP5
+    # # TTJets_SingleLeptFromT
+    # # TTJets_SingleLeptFromTbar
+    # # TTJets_DiLept
+    # TTJets_HT-600to800
+    # TTJets_HT-800to1200
+    # TTJets_HT-1200to2500
+    # TTJets_HT-2500toInf
 
-    #
-    # WJets
-    #
-    WJetsToLNu_HT-400To600
-    WJetsToLNu_HT-600To800
-    WJetsToLNu_HT-800To1200
-    WJetsToLNu_HT-1200To2500
-    WJetsToLNu_HT-2500ToInf
+    # #
+    # # WJets
+    # #
+    # WJetsToLNu_HT-400To600
+    # WJetsToLNu_HT-600To800
+    # WJetsToLNu_HT-800To1200
+    # WJetsToLNu_HT-1200To2500
+    # WJetsToLNu_HT-2500ToInf
 
-    #
-    # ZJets
-    #    
-    ZJetsToNuNu_HT-400To600
-    ZJetsToNuNu_HT-600To800
-    ZJetsToNuNu_HT-800To1200
-    ZJetsToNuNu_HT-1200To2500
-    ZJetsToNuNu_HT-2500ToInf
+    # #
+    # # ZJets
+    # #    
+    # ZJetsToNuNu_HT-400To600
+    # ZJetsToNuNu_HT-600To800
+    # ZJetsToNuNu_HT-800To1200
+    # ZJetsToNuNu_HT-1200To2500
+    # ZJetsToNuNu_HT-2500ToInf
 )
 
 cross_sections=(
@@ -155,89 +157,89 @@ cross_sections=(
     #
     # Signals
     #
-    # 79.21
-    # # 79.21
-    # # 79.21
+    79.21
+    79.21
+    79.21
     
-    # 53.32
-    # # 53.32
-    # # 53.32
+    53.32
+    53.32
+    53.32
 
-    # 35.89
-    # # 35.89
-    # # 35.89
+    35.89
+    35.89
+    35.89
 
-    # 24.16
-    # # 24.16
-    # # 24.16
+    24.16
+    24.16
+    24.16
 
-    # 16.26
-    # # 16.26
-    # # 16.26
+    16.26
+    16.26
+    16.26
 
-    # 10.95
-    # # 10.95
-    # # 10.95
+    10.95
+    10.95
+    10.95
 
-    # 7.368
-    # # 7.368
-    # # 7.368
+    7.368
+    7.368
+    7.368
 
-    # 5.086
-    # # 5.086
-    # # 5.086
+    5.086
+    5.086
+    5.086
 
-    # 3.586
-    # # 3.586
-    # # 3.586
+    3.586
+    3.586
+    3.586
 
-    # 2.574
-    # # 2.574
-    # # 2.574
+    2.574
+    2.574
+    2.574
 
-    # 1.875
-    # # 1.875
-    # # 1.875
+    1.875
+    1.875
+    1.875
 
     # 0.0412
     # 0.0412
     # 0.0412
 
 
-    #
-    # Backgrounds
-    #
-    # QCD
-    6310
-    1094
-    99.38
-    20.20
-    323400
-    30140
+    # #
+    # # Backgrounds
+    # #
+    # # QCD
+    # 6310
+    # 1094
+    # 99.38
+    # 20.20
+    # 323400
+    # 30140
 
-    # TTJets
-    831.8
-    # 182.2
-    # 182.2
-    # 87.3
-    2.4
-    0.98
-    0.2
-    0.002
+    # # TTJets
+    # 831.8
+    # # 182.2
+    # # 182.2
+    # # 87.3
+    # 2.4
+    # 0.98
+    # 0.2
+    # 0.002
 
-    # WJets
-    51.5
-    12.5
-    5.6
-    1.3
-    0.03
+    # # WJets
+    # 51.5
+    # 12.5
+    # 5.6
+    # 1.3
+    # 0.03
 
-    # ZJets
-    11.26
-    2.73
-    1.22
-    0.28
-    0.0064
+    # # ZJets
+    # 11.26
+    # 2.73
+    # 1.22
+    # 0.28
+    # 0.0064
 
 )
 
@@ -297,7 +299,7 @@ make_skims() {
                     else
                         weight_variation_flag=""
                     fi
-                    python skim.py -i ${input_files} -o ${output_file_tmp} -p ${module} -pd ${dataset_name} -y ${year} -nano_scout -mc -xsec ${xsec} -corrfile ${pfnano_corrections_file} -e ${EXECUTOR} -port ${PORT} -n ${N_WORKERS} -c ${CHUNK_SIZE} --memory ${MEMORY} --cores ${CORES} -pn_tagger ${variation_flag} ${weight_variation_flag} ${scouting_jec_flag}
+                    python skim.py -i ${input_files} -o ${output_file_tmp} -p ${module} -pd ${dataset_name} -y ${year} -nano_scout -mc -xsec ${xsec} -corrfile ${pfnano_corrections_file} -e ${EXECUTOR} -port ${PORT} -n ${N_WORKERS} -c ${CHUNK_SIZE} --memory ${MEMORY} --cores ${CORES} -pn_tagger ${variation_flag} ${weight_variation_flag} ${scouting_jec_flag} -lund
                     #python skim.py -i ${input_files} -o ${output_file_tmp} -p ${module} -pd ${dataset_name} -y ${year} -nano_scout -mc -xsec ${xsec} -corrfile ${pfnano_corrections_file} -e ${EXECUTOR} -port ${PORT} -n ${N_WORKERS} -c ${CHUNK_SIZE} --memory ${MEMORY} --cores ${CORES} -pn_tagger ${variation_flag} ${weight_variation_flag}
                     xrdcp -f ${output_file_tmp} ${output_file}
                     echo ${output_file} has been saved.

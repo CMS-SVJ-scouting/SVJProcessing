@@ -112,7 +112,7 @@ for year in years:
                 #"path": f"/pnfs/lcg.cscs.ch/cms/trivcat/store/user/cazzanig/darkshowers/samples/scouting/PFNano/QCD_HT_binned_2018_v0/{bin}/",
                 "redirector": "root://cmsdcache-kit-disk.gridka.de:1094/",
                 #"path": f"/store/user/mgaisdor/SVJScouting_ntuples/MC/{year}/{bin}/",
-                "path": f"/store/user/mgaisdor/SVJScouting_ntuples/MC/{year}_v4/{bin}/",
+                "path": f"/store/user/mgaisdor/SVJScouting_ntuples/MC/{year}_v5/merged_signals/{bin}/",
                 "regex": f"",
                 
             },

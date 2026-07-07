@@ -745,8 +745,10 @@ def apply_scale_variations(events,is_nano=False, multiply_by_pu_weight=False):
         variation_up = ak.max(events.ScaleWeights[:, [i for i in range(9) if i not in (5, 7)]], axis=-1)
         variation_down = ak.min(events.ScaleWeights[:, [i for i in range(9) if i not in (5, 7)]], axis=-1)
     elif is_nano:
-        variation_up = ak.max(events.LHEScaleWeight[:, [i for i in range(9) if i not in (5, 7)]], axis=-1)
-        variation_down = ak.min(events.LHEScaleWeight[:, [i for i in range(9) if i not in (5, 7)]], axis=-1)
+        # LHEScaleWeight: standard (PF)NanoAOD naming; ScaleWeights: scouting NanoAOD naming
+        scale_weights = events.LHEScaleWeight if "LHEScaleWeight" in events.fields else events.ScaleWeights
+        variation_up = ak.max(scale_weights[:, [i for i in range(9) if i not in (5, 7)]], axis=-1)
+        variation_down = ak.min(scale_weights[:, [i for i in range(9) if i not in (5, 7)]], axis=-1)
     else:
         raise NotImplementedError()
 
@@ -778,7 +780,8 @@ def apply_pdf_variations(events, is_nano=False, multiply_by_pu_weight=False):
         pdf_variations = events.PDFweights.to_numpy()
         
     elif is_nano:
-       pdf_variations = events.LHEPdfWeight.to_numpy()
+       # LHEPdfWeight: standard (PF)NanoAOD naming; PDFweights: scouting NanoAOD naming
+       pdf_variations = events.LHEPdfWeight.to_numpy() if "LHEPdfWeight" in events.fields else events.PDFweights.to_numpy()
 
     else:
         raise NotImplementedError()
@@ -802,13 +805,15 @@ def apply_ps_variations(events,is_nano=False,ps_type="ISR", multiply_by_pu_weigh
     """
 
     if is_nano:
+        # PSWeight: standard (PF)NanoAOD naming; PSweights: scouting NanoAOD naming
+        ps_weights = events.PSWeight if "PSWeight" in events.fields else events.PSweights
         if ps_type == "ISR":
-            variation_up = events.PSWeight[:, 0]
-            variation_down = events.PSWeight[:, 2]
+            variation_up = ps_weights[:, 0]
+            variation_down = ps_weights[:, 2]
         if ps_type == "FSR":
-            variation_up = events.PSWeight[:, 1]
-            variation_down = events.PSWeight[:, 3]
-       
+            variation_up = ps_weights[:, 1]
+            variation_down = ps_weights[:, 3]
+
     else:
         raise NotImplementedError()
 

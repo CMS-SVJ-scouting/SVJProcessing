@@ -295,7 +295,7 @@ make_skims() {
                         variation_flag="-varnano ${variation}"
                     fi
                     if [ ${add_weights_variations} == 1 ]; then
-                        weight_variation_flag="-wvarnano scale pdf pu"
+                        weight_variation_flag="-wvarnano scale pdf pu psISR psFSR"
                     else
                         weight_variation_flag=""
                     fi

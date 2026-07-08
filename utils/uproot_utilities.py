@@ -279,6 +279,12 @@ def __make_nano_aod_event_tree(ak_array, sort_by_name=True):
         if branch_name not in branches.keys():
             branches[branch_name] = single_branches[branch_name]
 
+    #print branches and types for debugging
+    for branch_name, branch in branches.items():
+        print(f"Branch {branch_name} has type {ak.type(branch)}")
+        #if isinstance(ak.type(branch), ak.types.UnionType):
+        #    print(f"Union type with types: {ak.type(branch).types}")
+
     return branches
 
 
@@ -298,6 +304,12 @@ def write_nano_aod_root_file(output_file_name, events=None, trees={}, mode="recr
     log.info("Writing down output ROOT file %s" % output_file_name)
     with getattr(uproot, mode)(output_file_name) as output_file:
         if events is not None:
+            #print fields and types for debugging
+            #for field in events.fields:
+            #    print(f"Field {field} has type {ak.type(events[field])}")
+            #    #print if union[?float64, var * float64]
+            #    if isinstance(ak.type(events[field]), ak.types.UnionType):
+            #            print(f"Union type with types: {ak.type(events[field]).types}")
             output_file["Events"] = __make_nano_aod_event_tree(events)
             log.info("TTree Events saved to output file")
         for tree_name, tree in trees.items():

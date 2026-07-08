@@ -20,23 +20,22 @@ def process(events, cut_flow, year, primary_dataset="", dataset_name="", pn_tagg
     """SVJ s-channel scouting pre-selection."""
 
     # Golden JSON lumi mask (data only)
-#    if skimmer_utils.is_data(events) and len(events) != 0:
-#        from coffea.lumi_tools import LumiMask
-#        lumi_mask = LumiMask(GOLDEN_JSON_PATHS[year])
-#        mask = lumi_mask(events.run, events.lumSec)
-#        events = events[mask]
-#        skimmer_utils.update_cut_flow(cut_flow, "GoldenJSON", events)
-#
-#    # TT stitching: avoid double-counting between inclusive and HT-binned samples.
-#    # Inclusive keeps lheHT < 600; HT-binned keeps lheHT >= 600 (matching removes
-#    # most such events but a small tail can leak below the bin boundary).
-#    _ttjets_ht_binned = ["TTJets_HT-600to800", "TTJets_HT-800to1200", "TTJets_HT-1200to2500", "TTJets_HT-2500toInf"]
-#    if "TTJets_TuneCP5" in dataset_name and len(events) != 0:
-#        events = events[events.lheHT < 600]
-#        skimmer_utils.update_cut_flow(cut_flow, "TTStitching", events)
-#    elif any(b in dataset_name for b in _ttjets_ht_binned) and len(events) != 0:
-#        events = events[events.lheHT >= 600]
-#        skimmer_utils.update_cut_flow(cut_flow, "TTStitching", events)
+    if skimmer_utils.is_data(events) and len(events) != 0:
+        from coffea.lumi_tools import LumiMask
+        lumi_mask = LumiMask(GOLDEN_JSON_PATHS[year])
+        mask = lumi_mask(events.run, events.lumSec)
+        events = events[mask]
+        skimmer_utils.update_cut_flow(cut_flow, "GoldenJSON", events)
+
+    # TT stitching: avoid double-counting between inclusive and HT-binned samples.
+    # Inclusive keeps lheHT < 600; HT-binned keeps lheHT >= 600 
+    _ttjets_ht_binned = ["TTJets_HT-600to800", "TTJets_HT-800to1200", "TTJets_HT-1200to2500", "TTJets_HT-2500toInf"]
+    if "TTJets_TuneCP5" in dataset_name and len(events) != 0:
+        events = events[events.lheHT < 600]
+        skimmer_utils.update_cut_flow(cut_flow, "TTStitching", events)
+    elif any(b in dataset_name for b in _ttjets_ht_binned) and len(events) != 0:
+        events = events[events.lheHT >= 600]
+        skimmer_utils.update_cut_flow(cut_flow, "TTStitching", events)
 
     # Trigger event selection
     triggers = getattr(trg, f"s_channel_scouting")
@@ -51,6 +50,7 @@ def process(events, cut_flow, year, primary_dataset="", dataset_name="", pn_tagg
     # Removing events with no jets to avoid crashes
     filter_njets = ak.count(events.FatJet_pt, axis=1) > 0
     events = events[filter_njets]
+    skimmer_utils.update_cut_flow(cut_flow, "nJetsAK8Gt0", events)
     
     # Adding JetsAK8_isGood branch already so that it can be used
     # in the rest of the pre-selection
@@ -61,25 +61,25 @@ def process(events, cut_flow, year, primary_dataset="", dataset_name="", pn_tagg
 
     # HEM issue filter: (apply to random events with same fraction as the lumi affected by HEM issue in data)
     # needs to have veto leptons and good ak4 jets already
-    #if len(events) != 0:
-    #    good_ak4_jets = ak.zip({
-    #        "eta": events.Jet_eta[events.Jet_isGood],
-    #        "phi": events.Jet_phi[events.Jet_isGood],
-    #    })
-    #    veto_electrons = ak.zip({
-    #        "eta": events.Electron_eta[events.Electron_isVeto],
-    #        "phi": events.Electron_phi[events.Electron_isVeto],
-    #    })
-    #    veto_muons = ak.zip({
-    #        "eta": events.Muon_eta[events.Muon_isVeto],
-    #        "phi": events.Muon_phi[events.Muon_isVeto],
-    #    })
-    #    if year == "2018" and skimmer_utils.is_data(events):
-    #        events = skimmer_utils.apply_hem_veto(events, good_ak4_jets, veto_electrons, veto_muons)
-    #        skimmer_utils.update_cut_flow(cut_flow, "HEMVeto", events)
-    #    if year == "2018" and skimmer_utils.is_mc(events):
-    #        filter = skimmer_utils.get_hem_veto_filter(good_ak4_jets, veto_electrons, veto_muons)
-    #        events["HEMVeto"] = filter
+    if len(events) != 0:
+        good_ak4_jets = ak.zip({
+            "eta": events.Jet_eta[events.Jet_isGood],
+            "phi": events.Jet_phi[events.Jet_isGood],
+        })
+        veto_electrons = ak.zip({
+            "eta": events.Electron_eta[events.Electron_isVeto],
+            "phi": events.Electron_phi[events.Electron_isVeto],
+        })
+        veto_muons = ak.zip({
+            "eta": events.Muon_eta[events.Muon_isVeto],
+            "phi": events.Muon_phi[events.Muon_isVeto],
+        })
+        if year == "2018" and skimmer_utils.is_data(events):
+            events = skimmer_utils.apply_hem_veto(events, good_ak4_jets, veto_electrons, veto_muons)
+        if year == "2018" and skimmer_utils.is_mc(events):
+            filter = skimmer_utils.get_hem_veto_filter(good_ak4_jets, veto_electrons, veto_muons)
+            events["HEMVeto"] = filter
+    skimmer_utils.update_cut_flow(cut_flow, "HEMVeto", events)
 
     # Requiring at least 2 good FatJets
     if len(events) != 0:
@@ -94,7 +94,25 @@ def process(events, cut_flow, year, primary_dataset="", dataset_name="", pn_tagg
 #
 #    skimmer_utils.update_cut_flow(cut_flow, "IsolatedLeptonVeto", events)
 
+    # MET filters — good primary vertex filter
+    # Require PV_isValidVtx == 1, |PV_z| <= 24, sqrt(PV_x²+PV_y²) < 2
+    if len(events) != 0:
+        events = sequences.add_good_pv_branch(events)
+        filter_good_pv = ak.sum(events.PV_isGood, axis=1) >= 1
+        events = events[filter_good_pv]
+    skimmer_utils.update_cut_flow(cut_flow, "goodVerticesFilter", events)
+    
+    # could implement experimental bad muon filters (official ones are not reproducible in scouting)
 
+    # Phi spike filter: check subleading good AK8 jet vs dead cells
+    if len(events) != 0:
+        events = sequences.apply_scouting_phi_spike_filter(events, year)
+    skimmer_utils.update_cut_flow(cut_flow, "PhiSpikeFilter", events)
+
+    # Gap jet veto: veto events with high pt leading AK4 jets with high photon energy fraction (mostly important for data/MC in the tails)
+    if len(events) != 0:
+        events = sequences.apply_gap_jet_veto(events)
+    skimmer_utils.update_cut_flow(cut_flow, "GapJetVeto", events)
 
     #apply RT filter (RT = MET over MT)
 #    if len(events) != 0:
@@ -150,18 +168,6 @@ def process(events, cut_flow, year, primary_dataset="", dataset_name="", pn_tagg
 #        events = events[filter_mt]
 #    
 #    skimmer_utils.update_cut_flow(cut_flow, "MT_selection", events)
-
-    # MET filters — good primary vertex filter
-    # Require PV_isValidVtx == 1, |PV_z| <= 24, sqrt(PV_x²+PV_y²) < 2
-#    if len(events) != 0:
-#        events = sequences.add_good_pv_branch(events)
-#        filter_good_pv = ak.sum(events.PV_isGood, axis=1) >= 1
-#        events = events[filter_good_pv]
-#        skimmer_utils.update_cut_flow(cut_flow, "goodVerticesFilter", events)
-    
-    # could implement experimental bad muon filters (official ones are not reproducible in scouting)
-
-    #CZZ: Phi spike filter: MISSING
 
     # Delta phi min cut
 #    if len(events) != 0:

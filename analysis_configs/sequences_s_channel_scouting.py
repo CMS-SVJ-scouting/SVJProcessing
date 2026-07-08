@@ -130,25 +130,28 @@ def _compute_electron_id(events):
     # Barrel: |eta| < 1.479, Endcap: 1.479 < |eta| < 2.5
     is_barrel = abs(events["Electron_eta"]) < 1.479
 
-    # Approximate energy: E_SC ~ pt * cosh(eta) (not really supercluster energy, but best proxy)
-    e_sc = events["Electron_pt"] * np.cosh(events["Electron_eta"])
-    # rho: median energy density, used for pile-up correction in H/E
-    rho = events["rho"]
+    sieie_cut = ak.where(is_barrel, 0.015, 0.045)
+    hoe_cut = 0.2
+    detain_cut = ak.where(is_barrel, 0.008, 0.012)
+    dphiin_cut = 0.06
+    ecaliso_cut = ak.where(is_barrel, 0.25, 0.1)
+    trkiso_cut = 0.001
+    hcaliso_cut = ak.where(is_barrel, 0.4, 0.6)
+    #ooEMOop_cut = ak.where(is_barrel, 0.209, 0.132)
+    #mhits_cut = ak.where(is_barrel, 2, 3)
 
-    sieie_cut = ak.where(is_barrel, 0.0126, 0.0457)
-    detain_cut = ak.where(is_barrel, 0.00463, 0.00814)
-    dphiin_cut = ak.where(is_barrel, 0.148, 0.19)
-    hoe_cut = ak.where(is_barrel, 0.05 + 1.16 / e_sc + 0.0324 * rho / e_sc, 0.05 + 2.54 / e_sc + 0.183 * rho / e_sc)
-    ooEMOop_cut = ak.where(is_barrel, 0.209, 0.132)
-    mhits_cut = ak.where(is_barrel, 2, 3)
+    electron_energy = events["Electron_pt"] * np.cosh(events["Electron_eta"])
 
     passID = (
         (events["Electron_sieie"] < sieie_cut)
         & (abs(events["Electron_detain"]) < detain_cut)
         & (abs(events["Electron_dphiin"]) < dphiin_cut)
         & (events["Electron_hoe"] < hoe_cut)
-        & (abs(events["Electron_ooEMOop"]) < ooEMOop_cut)
-        & (events["Electron_mHits"] <= mhits_cut)
+        & (events["Electron_ecaliso"] / electron_energy < ecaliso_cut)
+        & (events["Electron_hcaliso"] / electron_energy < hcaliso_cut)
+        & (events["Electron_trkiso"] / electron_energy < trkiso_cut)
+        #& (abs(events["Electron_ooEMOop"]) < ooEMOop_cut)
+        #& (events["Electron_mHits"] <= mhits_cut)
     )
     return as_type(passID, int)
 
@@ -240,8 +243,11 @@ def _build_scouting_lepton_collections(events):
         "Electron_detain",
         "Electron_dphiin",
         "Electron_hoe",
-        "Electron_ooEMOop",
-        "Electron_mHits",
+        "Electron_ecaliso",
+        "Electron_hcaliso",
+        "Electron_trkiso",
+        #"Electron_ooEMOop",
+        #"Electron_mHits",
         "rho",
         "Muon_pt",
         "Muon_eta",
@@ -401,8 +407,81 @@ def add_dark_quark_matching(events):
     return events
 
 
+def apply_scouting_phi_spike_filter(events, year):
+    """Phi spike filter using only the subleading good AK4 jet.
+    Bin centers and radius are read from data/dead_cells/outlier_centers_{year}.txt.
+    The distance check follows the convention dist² < rad (consistent with apply_phi_spike_filter).
+    """
+    import os
+
+    data_dir = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "data", "dead_cells"
+    )
+    filepath = os.path.join(data_dir, f"outlier_centers_{year}.txt")
+
+    rad = 0.028816 * 0.35  # half-diagonal of eta-phi cell, factor 0.35 optimized for s/b sensitivity
+
+    eta_centers = []
+    phi_centers = []
+    with open(filepath) as f:
+        for line in f:
+            stripped = line.strip()
+            if stripped.startswith("#") or not stripped:
+                continue
+            parts = stripped.split()
+            eta_centers.append(float(parts[0]))
+            phi_centers.append(float(parts[1]))
+
+    eta_arr = np.array(eta_centers)
+    phi_arr = np.array(phi_centers)
+
+    # Subleading good AK4 jet (index 1)
+    good_jet_eta = events.Jet_eta[events.Jet_isGood]
+    good_jet_phi = events.Jet_phi[events.Jet_isGood]
+    sub_eta = ak.to_numpy(ak.fill_none(ak.pad_none(good_jet_eta, 2)[:, 1], np.inf))
+    sub_phi = ak.to_numpy(ak.fill_none(ak.pad_none(good_jet_phi, 2)[:, 1], np.inf))
+
+    # Reject events where subleading jet falls within rad of any dead cell center
+    # Convention: dist² < rad (same as apply_phi_spike_filter)
+    deta = sub_eta[:, np.newaxis] - eta_arr[np.newaxis, :]
+    dphi = sub_phi[:, np.newaxis] - phi_arr[np.newaxis, :]
+    dphi = np.where(dphi >  np.pi, dphi - 2.0 * np.pi, dphi)
+    dphi = np.where(dphi < -np.pi, dphi + 2.0 * np.pi, dphi)
+    in_spike = np.any(deta**2 + dphi**2 < rad, axis=1)
+
+    events = events[~in_spike]
+    return events
+
+def apply_gap_jet_veto(events):
+    # Veto events with high pt AK4 jets with high photon energy fraction, mostly occuring in the gap between barrel and endcap
+
+    ak4_jets = ak.zip(
+        {
+            "pt": events.Jet_pt,
+            "eta": events.Jet_eta,
+            "phi": events.Jet_phi,
+            "mass": events.Jet_mass,
+            "photonEnergyFraction": events.Jet_photonEnergyFraction,
+        },
+        with_name="PtEtaPhiMLorentzVector",
+    )
+
+    lead_jet = ak.pad_none(ak4_jets, 1)[:, 0]
+    veto_mask = (
+        (ak.fill_none(lead_jet.pt, 0) > 1000)
+        & (ak.fill_none(lead_jet.photonEnergyFraction, 0) > 0.7)
+    )
+    return events[~veto_mask]
+
 def remove_collections(events):
     #remove branch called genModel, hltResultName
     list_branches_to_remove = ["genModel", "hltResultName"]
+    list_collections_to_remove = ["Off", "nOff", "FatJetDarkHadronsubJets", "GenFatJetDarkHadrons"] 
+    for collection in list_collections_to_remove:
+        branches_to_remove = [field for field in events.fields if field.startswith(collection)]
+        list_branches_to_remove.extend(branches_to_remove)
+    #print(f"Removing the following branches from the output file: {list_branches_to_remove}")
     events = events[[key for key in events.fields if key not in list_branches_to_remove]]
+    
     return events

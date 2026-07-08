@@ -12,6 +12,7 @@ import cachetools
 from utils.awkward_array_utilities import as_type
 from utils.tree_maker.triggers import trigger_table as trigger_table_treemaker
 from utils.systematics import calc_jec_variation, calc_jer_variation, calc_jerc_variations_PFNano, calc_unclustered_met_variations_PFNano, calc_custom_svj_jes_variations_PFNano, apply_jercs_PFNano, apply_jecs_PFNano, propagate_jecs_to_MET_PFNano, propagate_jecs_to_METSig_PFNano
+from utils.met_jecs_factory import apply_met_xy_corrections
 
 # ---------------------------------------------------------------------------
 # Scouting JEC corrections via correctionlib (direct evaluation)
@@ -317,6 +318,19 @@ def is_data(events):
     return not is_mc(events)
 
 
+def _get_npv_for_met_xy(events):
+    """Return per-event count of primary vertices for MET XY corrections.
+    
+    Uses nPVs branch (scouting data) or PV_npvs (standard NanoAOD).
+    """
+    if "nPVs" in events.fields:
+        return events.nPVs
+    elif "PV_npvs" in events.fields:
+        return events.PV_npvs
+    else:
+        raise RuntimeError("Cannot determine npv: no nPVs or PV_npvs field found.")
+
+
 #def __jet_var_i(var,i,pad_value=np.Inf):
 #    padded_var = ak.fill_none(ak.pad_none(var,i+1),pad_value)
 #    return padded_var[:,i]
@@ -426,7 +440,7 @@ def get_hem_veto_filter(*objects_list):
     phi_min = -1.62
     phi_max = -0.82
 
-    veto = ak.ones_like(range(len(objects_list[0])), dtype=bool)
+    veto = ak.zeros_like(range(len(objects_list[0])), dtype=bool)
     for objects in objects_list:
         hem_veto = (
             (objects.eta > eta_min)
@@ -731,8 +745,10 @@ def apply_scale_variations(events,is_nano=False, multiply_by_pu_weight=False):
         variation_up = ak.max(events.ScaleWeights[:, [i for i in range(9) if i not in (5, 7)]], axis=-1)
         variation_down = ak.min(events.ScaleWeights[:, [i for i in range(9) if i not in (5, 7)]], axis=-1)
     elif is_nano:
-        variation_up = ak.max(events.LHEScaleWeight[:, [i for i in range(9) if i not in (5, 7)]], axis=-1)
-        variation_down = ak.min(events.LHEScaleWeight[:, [i for i in range(9) if i not in (5, 7)]], axis=-1)
+        # LHEScaleWeight: standard (PF)NanoAOD naming; ScaleWeights: scouting NanoAOD naming
+        scale_weights = events.LHEScaleWeight if "LHEScaleWeight" in events.fields else events.ScaleWeights
+        variation_up = ak.max(scale_weights[:, [i for i in range(9) if i not in (5, 7)]], axis=-1)
+        variation_down = ak.min(scale_weights[:, [i for i in range(9) if i not in (5, 7)]], axis=-1)
     else:
         raise NotImplementedError()
 
@@ -764,7 +780,8 @@ def apply_pdf_variations(events, is_nano=False, multiply_by_pu_weight=False):
         pdf_variations = events.PDFweights.to_numpy()
         
     elif is_nano:
-       pdf_variations = events.LHEPdfWeight.to_numpy()
+       # LHEPdfWeight: standard (PF)NanoAOD naming; PDFweights: scouting NanoAOD naming
+       pdf_variations = events.LHEPdfWeight.to_numpy() if "LHEPdfWeight" in events.fields else events.PDFweights.to_numpy()
 
     else:
         raise NotImplementedError()
@@ -788,25 +805,60 @@ def apply_ps_variations(events,is_nano=False,ps_type="ISR", multiply_by_pu_weigh
     """
 
     if is_nano:
+        # PSWeight: standard (PF)NanoAOD naming; PSweights: scouting NanoAOD naming
+        ps_weights = events.PSWeight if "PSWeight" in events.fields else events.PSweights
         if ps_type == "ISR":
-            variation_up = events.PSWeight[:, 0]
-            variation_down = events.PSWeight[:, 2]
+            variation_up = ps_weights[:, 0]
+            variation_down = ps_weights[:, 2]
         if ps_type == "FSR":
-            variation_up = events.PSWeight[:, 1]
-            variation_down = events.PSWeight[:, 3]
-       
+            variation_up = ps_weights[:, 1]
+            variation_down = ps_weights[:, 3]
+
     else:
         raise NotImplementedError()
 
     return __add_weight_variations(events, variation_up, variation_down, f"PS{ps_type}", computed_nominal_weights=None, multiply_by_pu_weights=multiply_by_pu_weight)
 
     
+def apply_pu_nominal_weight(events, year, pfnano_sys_file=None, is_nano=False):
+    """Multiply the nominal event weight by the nominal PU weight.
+
+    Always applied (independent of whether "pu" is requested in weight_variations)
+    since apply_pu_variations() and __add_weight_variations() (multiply_by_pu_weights=True
+    branch) rely on the f"{weight_name}PU" branch already being present in events.
+    """
+
+    if is_nano:
+        if "Pileup_nTrueInt" in events.fields:
+            pu_nTrueInt = events.Pileup_nTrueInt
+        elif "Pileup_nPU" in events.fields:
+            pu_nTrueInt = events.Pileup_nPU
+        else:
+            raise RuntimeError("Cannot compute PU nominal weight: neither 'Pileup_nTrueInt' nor 'Pileup_nPU' field found in events.")
+        variations_factory = load(pfnano_sys_file)
+
+    else:
+        raise NotImplementedError()
+
+    pu_nom, _, _ = variations_factory["get_pu_weight"](year, pu_nTrueInt)
+
+    weight_name = "Weight" if is_tree_maker(events) else "genWeight"
+    events[f"{weight_name}PU"] = events[weight_name] * pu_nom
+
+    return events
+
+
 def apply_pu_variations(events, year, pfnano_sys_file=None , is_nano=False, multiply_by_pu_weight=False):
 
     # Normalize the array of pdf weights by the first entry
     if is_nano:
-       pu_nTrueInt = events.Pileup_nTrueInt
-       variations_factory = load(pfnano_sys_file)
+        if "Pileup_nTrueInt" in events.fields:
+            pu_nTrueInt = events.Pileup_nTrueInt
+        elif "Pileup_nPU" in events.fields:
+            pu_nTrueInt = events.Pileup_nPU
+        else:
+            raise RuntimeError("Cannot compute PU variations: neither 'Pileup_nTrueInt' nor 'Pileup_nPU' field found in events.")
+        variations_factory = load(pfnano_sys_file)
 
     else:
         raise NotImplementedError()
@@ -859,7 +911,7 @@ def apply_lund_variation(events, var, all_events):
 
     #Lund variations are already added to the events
     if not var.startswith("lund"):
-        print("Adding Lund variations to events: ", "lundWeight"+var+"Up", "lundWeight"+var+"Down")
+        #print("Adding Lund variations to events: ", "lundWeight"+var+"Up", "lundWeight"+var+"Down")
         # Create the new branches
         events[f"{weight_name}{var}Up"] = weights_up
         events[f"{weight_name}{var}Down"] = weights_down
@@ -909,6 +961,39 @@ def apply_variation_pfnano(events, variation, year, run, pfnano_sys_file):
         events_obj[f"{met_base}_pt_all_corr"] = met_pt_all_corr
         events_obj[f"{met_base}_phi_all_corr"] = met_phi_all_corr
 
+    def _apply_xy_to_met(events_obj):
+        """Apply MET XY (phi modulation) correction on top of the already-stored T1 MET.
+
+        Updates ScoutMET_pt/phi, _all_corr, and _official_only in-place.
+        Does NOT touch _uncorr (raw MET baseline).
+        """
+        met_base = "ScoutMET" if "ScoutMET_pt" in events_obj.fields else "MET"
+        npv = _get_npv_for_met_xy(events_obj)
+        _is_data = is_data(events_obj)
+        # For data use per-event run numbers; MC run values are not used by the MC correction key
+        run_arr = events_obj.run if _is_data else ak.zeros_like(events_obj.run)
+
+        # XY-correct the primary (all_corr) MET
+        pt_xy, phi_xy = apply_met_xy_corrections(
+            events_obj[f"{met_base}_pt"],
+            events_obj[f"{met_base}_phi"],
+            year, npv, run_arr, _is_data,
+        )
+        events_obj[f"{met_base}_pt"] = pt_xy
+        events_obj[f"{met_base}_phi"] = phi_xy
+        events_obj[f"{met_base}_pt_all_corr"] = pt_xy
+        events_obj[f"{met_base}_phi_all_corr"] = phi_xy
+
+        # XY-correct the official_only MET snapshot (if present)
+        if f"{met_base}_pt_official_only" in events_obj.fields:
+            pt_xy_off, phi_xy_off = apply_met_xy_corrections(
+                events_obj[f"{met_base}_pt_official_only"],
+                events_obj[f"{met_base}_phi_official_only"],
+                year, npv, run_arr, _is_data,
+            )
+            events_obj[f"{met_base}_pt_official_only"] = pt_xy_off
+            events_obj[f"{met_base}_phi_official_only"] = phi_xy_off
+
     if variation in ["nominal","jec_up", "jec_down", "jer_up", "jer_down","SVJjec_up", "SVJjec_down"] and pfnano_sys_file is not None:
         jerc_cache = {}  # Use empty dict instead of cachetools to force fresh calculations
         #load the JEC/JER variations from the pfnano file
@@ -951,6 +1036,7 @@ def apply_variation_pfnano(events, variation, year, run, pfnano_sys_file):
                         met_pt_official,
                         met_phi_official,
                     )
+                    _apply_xy_to_met(events)
 
                     #Here propagate the corrections to METSignificance
                     # met_sig_corr_nom = propagate_jecs_to_METSig_PFNano(events,
@@ -1025,6 +1111,7 @@ def apply_variation_pfnano(events, variation, year, run, pfnano_sys_file):
                             met_pt_official,
                             met_phi_official,
                         )
+                        _apply_xy_to_met(events)
 
                     #unpack corrected_JERC_jets
                     jerc_corr_pt, jerc_corr_eta, jerc_corr_phi, jerc_corr_mass, jerc_pt_uncorr, jerc_mass_uncorr = corrected_JERC_jets
@@ -1095,6 +1182,7 @@ def apply_variation_pfnano(events, variation, year, run, pfnano_sys_file):
                             met_pt_official,
                             met_phi_official,
                         )
+                        _apply_xy_to_met(events)
 
                         #Here propagate the corrections to METSignificance
                         # met_sig_corr_nom = propagate_jecs_to_METSig_PFNano(events,
@@ -1169,6 +1257,7 @@ def apply_variation_pfnano(events, variation, year, run, pfnano_sys_file):
                             met_ptcorr,
                             met_phicorr,
                         )
+                        _apply_xy_to_met(events)
 
                         #Here propagate the corrections to METSignificance
                         #CZZ: MET must come from jerc varied collections, otherwise nominal when running the unclustered energy variation
@@ -1216,6 +1305,7 @@ def apply_variation_pfnano(events, variation, year, run, pfnano_sys_file):
         #add the MET corrections
         events["ScoutMET_pt"] = met_ptcorr
         events["ScoutMET_phi"] = met_phicorr
+        _apply_xy_to_met(events)
 
 
         #CZZ: first compute the JEC variations for AK4 and AK8 jets

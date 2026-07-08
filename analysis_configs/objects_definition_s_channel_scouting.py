@@ -20,17 +20,6 @@ def is_analysis_ak4_jet(jets):
         & (abs(jets.eta) < 2.4)
     )
 
-
-def is_good_electron(electrons):
-    # TODO: compute electron ID from scouting variables (analogous to add_jet_id_branch for ak8)
-    return electrons.id == 1
-
-
-def is_good_muon(muons):
-    # TODO: compute muon ID from scouting variables (analogous to add_jet_id_branch for ak8)
-    return muons.id == 1
-
-
 def is_analysis_electron(electrons):
     return (
         (electrons.pt > 10)

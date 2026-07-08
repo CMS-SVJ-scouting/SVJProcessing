@@ -81,8 +81,9 @@ def main():
 
     log.info(f"Input files list: {args.input_files_list}")
     log.info("Found the following output files:")
-    for x in output_files:
+    for x in output_files[0:5]:
         log.info(f"\t{x}")
+    log.info(f"\t... and {len(output_files)-5} more files" if len(output_files) > 5 else "")
 
     if args.nano_aod:
         schema = BaseSchema
@@ -103,6 +104,7 @@ def main():
         schemaclass=schema,
         entry_stop=10,
     ).events()
+    #is_data = True # manually set for testing
     is_data = skimmer_utils.is_data(events_file_0)
 
     df = pd.read_csv(args.input_files_list)

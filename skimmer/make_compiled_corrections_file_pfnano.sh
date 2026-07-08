@@ -1,3 +1,3 @@
 #!/bin/bash
 
-python ../utils/corrections_pfnano_coffea.py -jme
+python ../utils/corrections_pfnano_coffea.py -all

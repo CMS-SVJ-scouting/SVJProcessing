@@ -5,7 +5,7 @@ from tests import helper
 
 _REDIRECTOR = "root://cmsdcache-kit-disk.gridka.de:1094/"
 _BASE_PATH = "/store/user/mgaisdor/SVJScouting_ntuples/MC/2017_v4"
-_CORRECTIONS_FILE = os.path.join(os.environ.get('SVJ_PROCESSING_ROOT', '.'), 'data', 'corrections_2026-03-12_00-06-24_jme_corr.coffea')
+_CORRECTIONS_FILE = os.path.join(os.environ.get('SVJ_PROCESSING_ROOT', '.'), 'data', 'corrections_2026-04-28_18-13-31_all_corr.coffea')
 
 
 def _files(dataset, *names):

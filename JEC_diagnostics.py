@@ -117,6 +117,9 @@ def _read_single_file(file_path):
 
                 branches = [
                     "FatJet_pt", "FatJet_pt_uncorr", "GenFatJet_pt",
+                    "FatJet_eta", "FatJet_phi", "FatJet_mass",
+                    "GenFatJet_phi",
+                    "FatJet_isGood",
                     "ScoutMET_pt", "ScoutMET_pt_uncorr", "genMET_pt",
                     "ScoutMET_phi", "ScoutMET_phi_uncorr", "genMET_phi",
                 ]
@@ -128,6 +131,12 @@ def _read_single_file(file_path):
                     branches.append("ScoutMET_phi_official_only")
                 if "ScoutMET_phi_all_corr" in branch_names:
                     branches.append("ScoutMET_phi_all_corr")
+                if "MT01FatJetMET" in branch_names:
+                    branches.append("MT01FatJetMET")
+                if "RTFatJet" in branch_names:
+                    branches.append("RTFatJet")
+                if "DeltaPhiMinFatJetMET" in branch_names:
+                    branches.append("DeltaPhiMinFatJetMET")
 
                 arrs = events.arrays(branches, library="ak")
 
@@ -153,20 +162,119 @@ def _read_single_file(file_path):
                     if "ScoutMET_phi_all_corr" in arrs.fields
                     else arrs["ScoutMET_phi"]
                 )
+                # Pre-compute MT for each MET variant using the 2 leading corrected jets.
+                # JEC does not change jet eta/phi, so the dijet direction is shared.
+                def _calc_mt_arr(met_pt, met_phi):
+                    j0 = arrs["FatJet_pt"][:, 0:1]; j1 = arrs["FatJet_pt"][:, 1:2]
+                    j0_phi = arrs["FatJet_phi"][:, 0:1]; j1_phi = arrs["FatJet_phi"][:, 1:2]
+                    j0_eta = arrs["FatJet_eta"][:, 0:1]; j1_eta = arrs["FatJet_eta"][:, 1:2]
+                    j0_m = arrs["FatJet_mass"][:, 0:1]; j1_m = arrs["FatJet_mass"][:, 1:2]
+                    # dijet Cartesian sum
+                    j0_px = j0 * np.cos(j0_phi); j0_py = j0 * np.sin(j0_phi)
+                    j1_px = j1 * np.cos(j1_phi); j1_py = j1 * np.sin(j1_phi)
+                    jj_px = ak.flatten(j0_px + j1_px); jj_py = ak.flatten(j0_py + j1_py)
+                    jj_pt = np.sqrt(jj_px**2 + jj_py**2)
+                    jj_phi = np.arctan2(jj_py, jj_px)
+                    # dijet invariant mass (scalar sum via 4-vec is more correct but
+                    # requires eta; use E=sqrt(pt^2*cosh^2(eta)+m^2) per jet)
+                    j0_E = np.sqrt((j0 * np.cosh(j0_eta))**2 + j0_m**2)
+                    j1_E = np.sqrt((j1 * np.cosh(j1_eta))**2 + j1_m**2)
+                    j0_pz = j0 * np.sinh(j0_eta); j1_pz = j1 * np.sinh(j1_eta)
+                    jj_E = ak.flatten(j0_E + j1_E); jj_pz = ak.flatten(j0_pz + j1_pz)
+                    jj_m2 = jj_E**2 - jj_px**2 - jj_py**2 - jj_pz**2
+                    jj_m2 = ak.where(jj_m2 > 0, jj_m2, ak.zeros_like(jj_m2))
+                    jj_m = np.sqrt(jj_m2)
+                    dphi = np.arctan2(np.sin(met_phi - jj_phi), np.cos(met_phi - jj_phi))
+                    Et_jj = np.sqrt(jj_m2 + jj_pt**2)
+                    mt2 = jj_m2 + 2 * (Et_jj * met_pt - jj_pt * met_pt * np.cos(dphi))
+                    mt2 = ak.where(mt2 > 0, mt2, ak.zeros_like(mt2))
+                    return np.array(np.sqrt(mt2))
+
+                # Pre-compute deltaphimin for each MET variant
+                # Matches the skimmer's calculate_delta_phi_min function:
+                # takes min of abs(delta_phi) between MET and ALL good jets (filtered by FatJet_isGood)
+                def _calc_deltaphimin_arr_reco(met_phi, good_jet_mask):
+                    # Get phi for ALL good jets (filtered by FatJet_isGood mask)
+                    # The skimmer uses: events.FatJet_phi[events.FatJet_isGood]
+                    good_jet_phis = arrs["FatJet_phi"][good_jet_mask]  # shape: (n_events, n_good_jets_per_event)
+                    
+                    # Broadcast met_phi to same shape as good_jet_phis for element-wise computation
+                    met_phi_broadcast = ak.broadcast_arrays(met_phi, good_jet_phis)[0]
+                    
+                    # Compute delta_phi using proper wrapping: arctan2(sin(dphi), cos(dphi))
+                    # This matches the LorentzVector.delta_phi() method
+                    dphi = np.arctan2(np.sin(good_jet_phis - met_phi_broadcast), 
+                                     np.cos(good_jet_phis - met_phi_broadcast))
+                    
+                    # Take absolute value and minimum across all good jets (axis=1)
+                    # This matches: ak.min(abs(jets.delta_phi(met)), axis=1)
+                    deltaphimin = ak.min(np.abs(dphi), axis=1)
+                    
+                    # Handle None values (events with no good jets) by filling with a sentinel value
+                    deltaphimin = ak.fill_none(deltaphimin, -9999.0)
+                    return np.array(deltaphimin)
+                
+                def _calc_deltaphimin_arr_gen(met_phi):
+                    # For gen jets, use first 2 gen jets (no "good" jets filter for gen)
+                    gen_jet_phis = arrs["GenFatJet_phi"][:, :2]
+                    
+                    # Broadcast met_phi to same shape
+                    met_phi_broadcast = ak.broadcast_arrays(met_phi, gen_jet_phis)[0]
+                    
+                    # Compute delta_phi
+                    dphi = np.arctan2(np.sin(gen_jet_phis - met_phi_broadcast), 
+                                     np.cos(gen_jet_phis - met_phi_broadcast))
+                    
+                    # Take absolute value and minimum across jets (axis=1)
+                    deltaphimin = ak.min(np.abs(dphi), axis=1)
+                    
+                    # Handle None values by filling with a sentinel value
+                    deltaphimin = ak.fill_none(deltaphimin, -9999.0)
+                    return np.array(deltaphimin)
+                
+                # Filter to only use events with at least 2 good jets (should already be the case in skimmed files)
+                good_jet_mask = arrs["FatJet_isGood"]
+                n_good_jets = ak.sum(good_jet_mask, axis=1)
+                valid_events = n_good_jets >= 2
+                
                 return {
                     "initial_events": initial_events,
                     "xsec":      xsec,
-                    "pt_corr":   ak.flatten(arrs["FatJet_pt"][:, :2]),
-                    "pt_uncorr": ak.flatten(arrs["FatJet_pt_uncorr"][:, :2]),
-                    "pt_gen":    ak.flatten(arrs["GenFatJet_pt"][:, :2]),
-                    "met_uncorr": met_uncorr,
-                    "met_official_only": met_official_only,
-                    "met_all_corr": met_all_corr,
-                    "met_gen":    arrs["genMET_pt"],
-                    "met_phi_uncorr": met_phi_uncorr,
-                    "met_phi_official_only": met_phi_official_only,
-                    "met_phi_all_corr": met_phi_all_corr,
-                    "met_phi_gen": arrs["genMET_phi"],
+                    "pt_corr":   ak.flatten(arrs["FatJet_pt"][valid_events][:, :2]),
+                    "pt_uncorr": ak.flatten(arrs["FatJet_pt_uncorr"][valid_events][:, :2]),
+                    "pt_gen":    ak.flatten(arrs["GenFatJet_pt"][valid_events][:, :2]),
+                    "met_uncorr": met_uncorr[valid_events],
+                    "met_official_only": met_official_only[valid_events],
+                    "met_all_corr": met_all_corr[valid_events],
+                    "met_gen":   arrs["genMET_pt"][valid_events],
+                    "met_phi_uncorr": met_phi_uncorr[valid_events],
+                    "met_phi_official_only": met_phi_official_only[valid_events],
+                    "met_phi_all_corr": met_phi_all_corr[valid_events],
+                    "met_phi_gen": arrs["genMET_phi"][valid_events],
+                    "mt_uncorr":        _calc_mt_arr(met_uncorr[valid_events],        met_phi_uncorr[valid_events]),
+                    "mt_official_only": _calc_mt_arr(met_official_only[valid_events], met_phi_official_only[valid_events]),
+                    "mt_all_corr":      _calc_mt_arr(met_all_corr[valid_events],      met_phi_all_corr[valid_events]),
+                    "mt_gen":           _calc_mt_arr(arrs["genMET_pt"][valid_events],  arrs["genMET_phi"][valid_events]),
+                    "rt_uncorr":        np.array(met_uncorr[valid_events] / _calc_mt_arr(met_uncorr[valid_events], met_phi_uncorr[valid_events])),
+                    "rt_official_only": np.array(met_official_only[valid_events] / _calc_mt_arr(met_official_only[valid_events], met_phi_official_only[valid_events])),
+                    "rt_all_corr":      np.array(met_all_corr[valid_events] / _calc_mt_arr(met_all_corr[valid_events], met_phi_all_corr[valid_events])),
+                    "rt_gen":           np.array(arrs["genMET_pt"][valid_events] / _calc_mt_arr(arrs["genMET_pt"][valid_events], arrs["genMET_phi"][valid_events])),
+                    "deltaphimin_uncorr":        _calc_deltaphimin_arr_reco(met_phi_uncorr[valid_events], good_jet_mask[valid_events]),
+                    "deltaphimin_official_only": _calc_deltaphimin_arr_reco(met_phi_official_only[valid_events], good_jet_mask[valid_events]),
+                    "deltaphimin_all_corr":      _calc_deltaphimin_arr_reco(met_phi_all_corr[valid_events], good_jet_mask[valid_events]),
+                    "deltaphimin_gen":           _calc_deltaphimin_arr_gen(arrs["genMET_phi"][valid_events]),
+                    "_mt_check": (
+                        _calc_mt_arr(met_all_corr[valid_events], met_phi_all_corr[valid_events]),
+                        np.array(arrs["MT01FatJetMET"][valid_events]) if "MT01FatJetMET" in arrs.fields else None,
+                    ),
+                    "_rt_check": (
+                        np.array(met_all_corr[valid_events] / _calc_mt_arr(met_all_corr[valid_events], met_phi_all_corr[valid_events])),
+                        np.array(arrs["RTFatJet"][valid_events]) if "RTFatJet" in arrs.fields else None,
+                    ),
+                    "_deltaphimin_check": (
+                        _calc_deltaphimin_arr_reco(met_phi_all_corr[valid_events], good_jet_mask[valid_events]),
+                        np.array(arrs["DeltaPhiMinFatJetMET"][valid_events]) if "DeltaPhiMinFatJetMET" in arrs.fields else None,
+                    ),
                 }
             except Exception as e:
                 tqdm.write(f"    Warning: Events unreadable in {name}: {e}")
@@ -210,9 +318,97 @@ def read_dataset(dataset_name, dataset_path):
         print(f"  WARNING: {len(errors)} file(s) failed: {', '.join(errors[:5])}"
               + (" ..." if len(errors) > 5 else ""))
 
+    # --- Safety check: recalculated MT(all_corr) vs saved MT01FatJetMET ---
+    # Catches formula differences, wrong jet index selection, or skimmer logic changes.
+    mt_diffs = []
+    n_checked = 0
+    for r in raw:
+        if r is None or "_mt_check" not in r:
+            continue
+        mt_calc, mt_saved = r["_mt_check"]
+        if mt_saved is None:
+            continue
+        n_checked += len(mt_calc)
+        mt_diffs.append(np.abs(mt_calc - mt_saved[:len(mt_calc)]))
+    if mt_diffs:
+        all_diffs = np.concatenate(mt_diffs)
+        max_diff  = np.max(all_diffs)
+        mean_diff = np.mean(all_diffs)
+        frac_large = np.mean(all_diffs > 1.0)  # fraction with >1 GeV discrepancy
+        if max_diff < 1.0:
+            print(f"  [CHECK] MT recalc == MT01FatJetMET ✓  "
+                  f"(max |ΔMT|={max_diff:.3f} GeV, mean={mean_diff:.3f} GeV, n={n_checked})")
+        else:
+            print(f"  [CHECK] WARNING: MT recalc != MT01FatJetMET!  "
+                  f"max |ΔMT|={max_diff:.1f} GeV, mean={mean_diff:.2f} GeV, "
+                  f">1 GeV fraction={frac_large:.1%}, n={n_checked}")
+            print(f"          => formula or jet selection mismatch between diagnostics and skimmer")
+    else:
+        print(f"  [CHECK] MT01FatJetMET branch not found — cannot validate MT recalculation")
+    # -------------------------------------------------------------------
+
+    # --- Safety check: recalculated RT(all_corr) vs saved RTFatJet ---
+    rt_diffs = []
+    n_checked_rt = 0
+    for r in raw:
+        if r is None or "_rt_check" not in r:
+            continue
+        rt_calc, rt_saved = r["_rt_check"]
+        if rt_saved is None:
+            continue
+        n_checked_rt += len(rt_calc)
+        rt_diffs.append(np.abs(rt_calc - rt_saved[:len(rt_calc)]))
+    if rt_diffs:
+        all_diffs = np.concatenate(rt_diffs)
+        max_diff  = np.max(all_diffs)
+        mean_diff = np.mean(all_diffs)
+        frac_large = np.mean(all_diffs > 0.01)  # fraction with >0.01 discrepancy
+        if max_diff < 0.01:
+            print(f"  [CHECK] RT recalc == RTFatJet ✓  "
+                  f"(max |ΔRT|={max_diff:.4f}, mean={mean_diff:.4f}, n={n_checked_rt})")
+        else:
+            print(f"  [CHECK] WARNING: RT recalc != RTFatJet!  "
+                  f"max |ΔRT|={max_diff:.3f}, mean={mean_diff:.4f}, "
+                  f">0.01 fraction={frac_large:.1%}, n={n_checked_rt}")
+            print(f"          => formula or jet selection mismatch between diagnostics and skimmer")
+    else:
+        print(f"  [CHECK] RTFatJet branch not found — cannot validate RT recalculation")
+    # -------------------------------------------------------------------
+
+    # --- Safety check: recalculated deltaphimin(all_corr) vs saved DeltaPhiMinFatJetMET ---
+    deltaphimin_diffs = []
+    n_checked_dphi = 0
+    for r in raw:
+        if r is None or "_deltaphimin_check" not in r:
+            continue
+        dphi_calc, dphi_saved = r["_deltaphimin_check"]
+        if dphi_saved is None:
+            continue
+        n_checked_dphi += len(dphi_calc)
+        deltaphimin_diffs.append(np.abs(dphi_calc - dphi_saved[:len(dphi_calc)]))
+    if deltaphimin_diffs:
+        all_diffs = np.concatenate(deltaphimin_diffs)
+        max_diff  = np.max(all_diffs)
+        mean_diff = np.mean(all_diffs)
+        frac_large = np.mean(all_diffs > 0.01)  # fraction with >0.01 rad discrepancy
+        if max_diff < 0.01:
+            print(f"  [CHECK] DeltaPhiMin recalc == DeltaPhiMinFatJetMET ✓  "
+                  f"(max |Δφ|={max_diff:.4f} rad, mean={mean_diff:.4f} rad, n={n_checked_dphi})")
+        else:
+            print(f"  [CHECK] WARNING: DeltaPhiMin recalc != DeltaPhiMinFatJetMET!  "
+                  f"max |Δφ|={max_diff:.3f} rad, mean={mean_diff:.4f} rad, "
+                  f">0.01 rad fraction={frac_large:.1%}, n={n_checked_dphi}")
+            print(f"          => formula or jet selection mismatch between diagnostics and skimmer")
+    else:
+        print(f"  [CHECK] DeltaPhiMinFatJetMET branch not found — cannot validate deltaphimin recalculation")
+    # -------------------------------------------------------------------
+
     pt_corr_all = []; pt_uncorr_all = []; pt_gen_all = []
     met_uncorr_all = []; met_official_only_all = []; met_all_corr_all = []; met_gen_all = []
     met_phi_uncorr_all = []; met_phi_official_only_all = []; met_phi_all_corr_all = []; met_phi_gen_all = []
+    mt_uncorr_all = []; mt_official_only_all = []; mt_all_corr_all = []; mt_gen_all = []
+    rt_uncorr_all = []; rt_official_only_all = []; rt_all_corr_all = []; rt_gen_all = []
+    deltaphimin_uncorr_all = []; deltaphimin_official_only_all = []; deltaphimin_all_corr_all = []; deltaphimin_gen_all = []
     total_initial_events = 0
     total_xsec = None
 
@@ -233,6 +429,18 @@ def read_dataset(dataset_name, dataset_path):
         met_phi_official_only_all.append(r["met_phi_official_only"])
         met_phi_all_corr_all.append(r["met_phi_all_corr"])
         met_phi_gen_all.append(r["met_phi_gen"])
+        mt_uncorr_all.append(r["mt_uncorr"])
+        mt_official_only_all.append(r["mt_official_only"])
+        mt_all_corr_all.append(r["mt_all_corr"])
+        mt_gen_all.append(r["mt_gen"])
+        rt_uncorr_all.append(r["rt_uncorr"])
+        rt_official_only_all.append(r["rt_official_only"])
+        rt_all_corr_all.append(r["rt_all_corr"])
+        rt_gen_all.append(r["rt_gen"])
+        deltaphimin_uncorr_all.append(r["deltaphimin_uncorr"])
+        deltaphimin_official_only_all.append(r["deltaphimin_official_only"])
+        deltaphimin_all_corr_all.append(r["deltaphimin_all_corr"])
+        deltaphimin_gen_all.append(r["deltaphimin_gen"])
 
     if not pt_corr_all:
         print(f"  No data read for {dataset_name}")
@@ -249,6 +457,18 @@ def read_dataset(dataset_name, dataset_path):
     met_phi_official_only_concat = ak.concatenate(met_phi_official_only_all)
     met_phi_all_corr_concat = ak.concatenate(met_phi_all_corr_all)
     met_phi_gen_concat = ak.concatenate(met_phi_gen_all)
+    mt_uncorr_concat        = np.concatenate(mt_uncorr_all)
+    mt_official_only_concat = np.concatenate(mt_official_only_all)
+    mt_all_corr_concat      = np.concatenate(mt_all_corr_all)
+    mt_gen_concat           = np.concatenate(mt_gen_all)
+    rt_uncorr_concat        = np.concatenate(rt_uncorr_all)
+    rt_official_only_concat = np.concatenate(rt_official_only_all)
+    rt_all_corr_concat      = np.concatenate(rt_all_corr_all)
+    rt_gen_concat           = np.concatenate(rt_gen_all)
+    deltaphimin_uncorr_concat        = np.concatenate(deltaphimin_uncorr_all)
+    deltaphimin_official_only_concat = np.concatenate(deltaphimin_official_only_all)
+    deltaphimin_all_corr_concat      = np.concatenate(deltaphimin_all_corr_all)
+    deltaphimin_gen_concat           = np.concatenate(deltaphimin_gen_all)
 
     if total_xsec is not None and total_initial_events > 0:
         weight_per_event = total_xsec / total_initial_events
@@ -275,6 +495,18 @@ def read_dataset(dataset_name, dataset_path):
         "met_phi_official_only": np.array(met_phi_official_only_concat),
         "met_phi_all_corr": np.array(met_phi_all_corr_concat),
         "met_phi_gen": np.array(met_phi_gen_concat),
+        "mt_uncorr":        mt_uncorr_concat,
+        "mt_official_only": mt_official_only_concat,
+        "mt_all_corr":      mt_all_corr_concat,
+        "mt_gen":           mt_gen_concat,
+        "rt_uncorr":        rt_uncorr_concat,
+        "rt_official_only": rt_official_only_concat,
+        "rt_all_corr":      rt_all_corr_concat,
+        "rt_gen":           rt_gen_concat,
+        "deltaphimin_uncorr":        deltaphimin_uncorr_concat,
+        "deltaphimin_official_only": deltaphimin_official_only_concat,
+        "deltaphimin_all_corr":      deltaphimin_all_corr_concat,
+        "deltaphimin_gen":           deltaphimin_gen_concat,
         "weights_reco": weights_reco,
         "weights_gen":  weights_gen,
         "weights_met":  weights_met,
@@ -822,6 +1054,249 @@ def _plot_met_dphi_group(samples, group_name, group_info, output_prefix):
     plt.close()
 
 
+def _plot_mt_group(samples, group_name, group_info, output_prefix):
+    """Plot MT distributions for different MET variants in one sample group."""
+    bins = np.linspace(0, 3000, 61)
+    bin_centers = (bins[:-1] + bins[1:]) / 2
+    gen_color    = "#2ca02c"
+    color_uncorr   = "#d62728"
+    color_official = "#ff7f0e"
+    color_allcorr  = "#1f77b4"
+    legend_title = group_info["legend_title"]
+
+    total = {k: None for k in ("uncorr", "official", "allcorr", "gen")}
+    w2    = {k: None for k in total}
+
+    for data in samples:
+        w = data["weights_met"]
+        for key, arr in [
+            ("uncorr",   data["mt_uncorr"]),
+            ("official", data["mt_official_only"]),
+            ("allcorr",  data["mt_all_corr"]),
+            ("gen",      data["mt_gen"]),
+        ]:
+            # guard for length mismatch (e.g. events with < 2 jets dropped)
+            w_ = w[:len(arr)]
+            h,  _ = np.histogram(arr, bins=bins, weights=w_)
+            h2, _ = np.histogram(arr, bins=bins, weights=w_**2)
+            if total[key] is None:
+                total[key] = h; w2[key] = h2
+            else:
+                total[key] += h; w2[key] += h2
+
+    err = {k: np.sqrt(v) for k, v in w2.items()}
+
+    ratio_u   = np.divide(total["uncorr"],   total["gen"], where=total["gen"] > 0, out=np.ones_like(total["uncorr"]))
+    ratio_o   = np.divide(total["official"], total["gen"], where=total["gen"] > 0, out=np.ones_like(total["official"]))
+    ratio_a   = np.divide(total["allcorr"],  total["gen"], where=total["gen"] > 0, out=np.ones_like(total["allcorr"]))
+
+    fig, axes = plt.subplots(2, 1, figsize=(12, 10), sharex=True,
+                             gridspec_kw={"height_ratios": [3, 1], "hspace": 0.0})
+    ax_main, ax_ratio = axes
+
+    ax_main.hist(bins[:-1], bins=bins, weights=total["allcorr"],  histtype="step", lw=2, color=color_allcorr,  ls="-",  label="All corrections",  alpha=0.85)
+    ax_main.hist(bins[:-1], bins=bins, weights=total["official"], histtype="step", lw=2, color=color_official, ls="-.", label="Official JEC only",  alpha=0.85)
+    ax_main.hist(bins[:-1], bins=bins, weights=total["uncorr"],   histtype="step", lw=2, color=color_uncorr,   ls="--", label="Uncorrected MET",     alpha=0.85)
+    ax_main.hist(bins[:-1], bins=bins, weights=total["gen"],      histtype="step", lw=2, color=gen_color,      ls="-",  label="Gen MET")
+    for key, color in [("allcorr", color_allcorr),
+                       ("official", color_official), ("uncorr", color_uncorr), ("gen", gen_color)]:
+        ax_main.errorbar(bin_centers, total[key], yerr=err[key], fmt="none", ecolor=color, elinewidth=1.5, alpha=0.5)
+
+    ax_ratio.hist(bins[:-1], bins=bins, weights=ratio_a,   histtype="step", lw=2, color=color_allcorr,  ls="-",  label="All-corr/Gen")
+    ax_ratio.hist(bins[:-1], bins=bins, weights=ratio_o,   histtype="step", lw=2, color=color_official, ls="-.", label="Official/Gen")
+    ax_ratio.hist(bins[:-1], bins=bins, weights=ratio_u,   histtype="step", lw=2, color=color_uncorr,   ls="--", label="Uncorr/Gen")
+
+    # MT > 650 GeV cut line
+    ax_main.axvline(650, color="gray", ls="--", lw=1.5, alpha=0.7, label="MT > 650 GeV cut")
+    ax_ratio.axvline(650, color="gray", ls="--", lw=1.5, alpha=0.7)
+
+    ax_main.set_ylabel("Arbitrary Units", ha="right", y=1.0, fontsize=14)
+    ax_main.set_yscale("log")
+    ax_main.set_title(r"$\mathit{Private\ Work}$ $\mathbf{(CMS\ Simulation)}$",
+                      loc="left", fontsize=20, pad=0, x=0.0)
+    leg = ax_main.legend(loc="upper right", frameon=True, fontsize=10, title=legend_title)
+    leg.get_title().set_fontsize(11); leg.get_title().set_fontweight("bold")
+    ax_main.grid(True, alpha=0.2, which="both")
+    yticks = ax_main.get_yticks(); ax_main.set_yticks(yticks[1:])
+
+    ax_ratio.set_xlabel(r"$M_T$ [GeV]", ha="right", x=1.0, fontsize=14)
+    ax_ratio.set_ylabel("Reco / Gen", ha="right", y=1.0, fontsize=14)
+    ax_ratio.set_ylim(0.5, 1.5)
+    ax_ratio.axhline(1.0, color="gray", ls="--", lw=1)
+    ax_ratio.legend(loc="upper right", frameon=True, fontsize=9)
+    ax_ratio.grid(True, alpha=0.2, which="both")
+    ax_ratio.tick_params(axis="both", labelsize=12)
+
+    plt.tight_layout()
+    suffix = group_name.lower()
+    plt.savefig(f"{output_prefix}_{suffix}.png", dpi=300, bbox_inches="tight")
+    plt.savefig(f"{output_prefix}_{suffix}.pdf", bbox_inches="tight")
+    print(f"Saved {group_name} MT plots to {output_prefix}_{suffix}.png/.pdf")
+    plt.close()
+
+
+def _plot_rt_group(samples, group_name, group_info, output_prefix):
+    """Plot RT distributions for different MET variants in one sample group."""
+    bins = np.linspace(0, 1.0, 51)
+    bin_centers = (bins[:-1] + bins[1:]) / 2
+    gen_color    = "#2ca02c"
+    color_uncorr   = "#d62728"
+    color_official = "#ff7f0e"
+    color_allcorr  = "#1f77b4"
+    legend_title = group_info["legend_title"]
+
+    total = {k: None for k in ("uncorr", "official", "allcorr", "gen")}
+    w2    = {k: None for k in total}
+
+    for data in samples:
+        w = data["weights_met"]
+        for key, arr in [
+            ("uncorr",   data["rt_uncorr"]),
+            ("official", data["rt_official_only"]),
+            ("allcorr",  data["rt_all_corr"]),
+            ("gen",      data["rt_gen"]),
+        ]:
+            # guard for length mismatch (e.g. events with < 2 jets dropped)
+            w_ = w[:len(arr)]
+            h,  _ = np.histogram(arr, bins=bins, weights=w_)
+            h2, _ = np.histogram(arr, bins=bins, weights=w_**2)
+            if total[key] is None:
+                total[key] = h; w2[key] = h2
+            else:
+                total[key] += h; w2[key] += h2
+
+    err = {k: np.sqrt(v) for k, v in w2.items()}
+
+    ratio_u   = np.divide(total["uncorr"],   total["gen"], where=total["gen"] > 0, out=np.ones_like(total["uncorr"]))
+    ratio_o   = np.divide(total["official"], total["gen"], where=total["gen"] > 0, out=np.ones_like(total["official"]))
+    ratio_a   = np.divide(total["allcorr"],  total["gen"], where=total["gen"] > 0, out=np.ones_like(total["allcorr"]))
+
+    fig, axes = plt.subplots(2, 1, figsize=(12, 10), sharex=True,
+                             gridspec_kw={"height_ratios": [3, 1], "hspace": 0.0})
+    ax_main, ax_ratio = axes
+
+    ax_main.hist(bins[:-1], bins=bins, weights=total["allcorr"],  histtype="step", lw=2, color=color_allcorr,  ls="-",  label="All corrections",  alpha=0.85)
+    ax_main.hist(bins[:-1], bins=bins, weights=total["official"], histtype="step", lw=2, color=color_official, ls="-.", label="Official JEC only",  alpha=0.85)
+    ax_main.hist(bins[:-1], bins=bins, weights=total["uncorr"],   histtype="step", lw=2, color=color_uncorr,   ls="--", label="Uncorrected MET",     alpha=0.85)
+    ax_main.hist(bins[:-1], bins=bins, weights=total["gen"],      histtype="step", lw=2, color=gen_color,      ls="-",  label="Gen MET")
+    for key, color in [("allcorr", color_allcorr),
+                       ("official", color_official), ("uncorr", color_uncorr), ("gen", gen_color)]:
+        ax_main.errorbar(bin_centers, total[key], yerr=err[key], fmt="none", ecolor=color, elinewidth=1.5, alpha=0.5)
+
+    ax_ratio.hist(bins[:-1], bins=bins, weights=ratio_a,   histtype="step", lw=2, color=color_allcorr,  ls="-",  label="All-corr/Gen")
+    ax_ratio.hist(bins[:-1], bins=bins, weights=ratio_o,   histtype="step", lw=2, color=color_official, ls="-.", label="Official/Gen")
+    ax_ratio.hist(bins[:-1], bins=bins, weights=ratio_u,   histtype="step", lw=2, color=color_uncorr,   ls="--", label="Uncorr/Gen")
+
+    # RT > 0.15 cut line
+    ax_main.axvline(0.15, color="gray", ls="--", lw=1.5, alpha=0.7, label="RT > 0.15 cut")
+    ax_ratio.axvline(0.15, color="gray", ls="--", lw=1.5, alpha=0.7)
+
+    ax_main.set_ylabel("Arbitrary Units", ha="right", y=1.0, fontsize=14)
+    ax_main.set_yscale("log")
+    ax_main.set_title(r"$\mathit{Private\ Work}$ $\mathbf{(CMS\ Simulation)}$",
+                      loc="left", fontsize=20, pad=0, x=0.0)
+    leg = ax_main.legend(loc="upper right", frameon=True, fontsize=10, title=legend_title)
+    leg.get_title().set_fontsize(11); leg.get_title().set_fontweight("bold")
+    ax_main.grid(True, alpha=0.2, which="both")
+    yticks = ax_main.get_yticks(); ax_main.set_yticks(yticks[1:])
+
+    ax_ratio.set_xlabel(r"$R_T$ (MET / $M_T$)", ha="right", x=1.0, fontsize=14)
+    ax_ratio.set_ylabel("Reco / Gen", ha="right", y=1.0, fontsize=14)
+    ax_ratio.set_ylim(0.5, 1.5)
+    ax_ratio.axhline(1.0, color="gray", ls="--", lw=1)
+    ax_ratio.legend(loc="upper right", frameon=True, fontsize=9)
+    ax_ratio.grid(True, alpha=0.2, which="both")
+    ax_ratio.tick_params(axis="both", labelsize=12)
+
+    plt.tight_layout()
+    suffix = group_name.lower()
+    plt.savefig(f"{output_prefix}_{suffix}.png", dpi=300, bbox_inches="tight")
+    plt.savefig(f"{output_prefix}_{suffix}.pdf", bbox_inches="tight")
+    print(f"Saved {group_name} RT plots to {output_prefix}_{suffix}.png/.pdf")
+    plt.close()
+
+
+def _plot_deltaphimin_group(samples, group_name, group_info, output_prefix):
+    """Plot deltaphimin distributions for different MET variants in one sample group."""
+    bins = np.linspace(0, 1.5, 51)
+    bin_centers = (bins[:-1] + bins[1:]) / 2
+    gen_color    = "#2ca02c"
+    color_uncorr   = "#d62728"
+    color_official = "#ff7f0e"
+    color_allcorr  = "#1f77b4"
+    legend_title = group_info["legend_title"]
+
+    total = {k: None for k in ("uncorr", "official", "allcorr", "gen")}
+    w2    = {k: None for k in total}
+
+    for data in samples:
+        w = data["weights_met"]
+        for key, arr in [
+            ("uncorr",   data["deltaphimin_uncorr"]),
+            ("official", data["deltaphimin_official_only"]),
+            ("allcorr",  data["deltaphimin_all_corr"]),
+            ("gen",      data["deltaphimin_gen"]),
+        ]:
+            # guard for length mismatch (e.g. events with < 2 jets dropped)
+            w_ = w[:len(arr)]
+            h,  _ = np.histogram(arr, bins=bins, weights=w_)
+            h2, _ = np.histogram(arr, bins=bins, weights=w_**2)
+            if total[key] is None:
+                total[key] = h; w2[key] = h2
+            else:
+                total[key] += h; w2[key] += h2
+
+    err = {k: np.sqrt(v) for k, v in w2.items()}
+
+    ratio_u   = np.divide(total["uncorr"],   total["gen"], where=total["gen"] > 0, out=np.ones_like(total["uncorr"]))
+    ratio_o   = np.divide(total["official"], total["gen"], where=total["gen"] > 0, out=np.ones_like(total["official"]))
+    ratio_a   = np.divide(total["allcorr"],  total["gen"], where=total["gen"] > 0, out=np.ones_like(total["allcorr"]))
+
+    fig, axes = plt.subplots(2, 1, figsize=(12, 10), sharex=True,
+                             gridspec_kw={"height_ratios": [3, 1], "hspace": 0.0})
+    ax_main, ax_ratio = axes
+
+    ax_main.hist(bins[:-1], bins=bins, weights=total["allcorr"],  histtype="step", lw=2, color=color_allcorr,  ls="-",  label="All corrections",  alpha=0.85)
+    ax_main.hist(bins[:-1], bins=bins, weights=total["official"], histtype="step", lw=2, color=color_official, ls="-.", label="Official JEC only",  alpha=0.85)
+    ax_main.hist(bins[:-1], bins=bins, weights=total["uncorr"],   histtype="step", lw=2, color=color_uncorr,   ls="--", label="Uncorrected MET",     alpha=0.85)
+    ax_main.hist(bins[:-1], bins=bins, weights=total["gen"],      histtype="step", lw=2, color=gen_color,      ls="-",  label="Gen MET")
+    for key, color in [("allcorr", color_allcorr),
+                       ("official", color_official), ("uncorr", color_uncorr), ("gen", gen_color)]:
+        ax_main.errorbar(bin_centers, total[key], yerr=err[key], fmt="none", ecolor=color, elinewidth=1.5, alpha=0.5)
+
+    ax_ratio.hist(bins[:-1], bins=bins, weights=ratio_a,   histtype="step", lw=2, color=color_allcorr,  ls="-",  label="All-corr/Gen")
+    ax_ratio.hist(bins[:-1], bins=bins, weights=ratio_o,   histtype="step", lw=2, color=color_official, ls="-.", label="Official/Gen")
+    ax_ratio.hist(bins[:-1], bins=bins, weights=ratio_u,   histtype="step", lw=2, color=color_uncorr,   ls="--", label="Uncorr/Gen")
+
+    # DeltaPhiMin < 0.8 cut line (typical selection)
+    ax_main.axvline(0.8, color="gray", ls="--", lw=1.5, alpha=0.7, label=r"$\Delta\phi_{min}$ < 0.8 cut")
+    ax_ratio.axvline(0.8, color="gray", ls="--", lw=1.5, alpha=0.7)
+
+    ax_main.set_ylabel("Arbitrary Units", ha="right", y=1.0, fontsize=14)
+    ax_main.set_yscale("log")
+    ax_main.set_title(r"$\mathit{Private\ Work}$ $\mathbf{(CMS\ Simulation)}$",
+                      loc="left", fontsize=20, pad=0, x=0.0)
+    leg = ax_main.legend(loc="upper right", frameon=True, fontsize=10, title=legend_title)
+    leg.get_title().set_fontsize(11); leg.get_title().set_fontweight("bold")
+    ax_main.grid(True, alpha=0.2, which="both")
+    yticks = ax_main.get_yticks(); ax_main.set_yticks(yticks[1:])
+
+    ax_ratio.set_xlabel(r"$\Delta\phi_{min}$ (jet, MET) [rad]", ha="right", x=1.0, fontsize=14)
+    ax_ratio.set_ylabel("Reco / Gen", ha="right", y=1.0, fontsize=14)
+    ax_ratio.set_ylim(0.5, 1.5)
+    ax_ratio.axhline(1.0, color="gray", ls="--", lw=1)
+    ax_ratio.legend(loc="upper right", frameon=True, fontsize=9)
+    ax_ratio.grid(True, alpha=0.2, which="both")
+    ax_ratio.tick_params(axis="both", labelsize=12)
+
+    plt.tight_layout()
+    suffix = group_name.lower()
+    plt.savefig(f"{output_prefix}_{suffix}.png", dpi=300, bbox_inches="tight")
+    plt.savefig(f"{output_prefix}_{suffix}.pdf", bbox_inches="tight")
+    print(f"Saved {group_name} DeltaPhiMin plots to {output_prefix}_{suffix}.png/.pdf")
+    plt.close()
+
+
 def _plot_met_resolution_vs_genmet_group(samples, group_name, group_info, output_prefix):
     """
     Plot MET relative resolution vs gen MET in bins.
@@ -994,14 +1469,17 @@ def main():
 
         # Make all plots for this group
         group_info = SAMPLE_GROUPS[group_name]
-        _plot_per_sample_contributions(samples, group_name, os.path.join(output_dir, "per_sample_contributions"))
+        #_plot_per_sample_contributions(samples, group_name, os.path.join(output_dir, "per_sample_contributions"))
         _plot_fatjet_pt_group(samples, group_name, group_info, os.path.join(output_dir, "fatjet_pt_comparison"))
         _plot_met_group(samples, group_name, group_info, os.path.join(output_dir, "met_comparison"))
-        _plot_met_closure_group(samples, group_name, group_info, os.path.join(output_dir, "met_closure"))
+        #_plot_met_closure_group(samples, group_name, group_info, os.path.join(output_dir, "met_closure"))
         _plot_met_dphi_group(samples, group_name, group_info, os.path.join(output_dir, "met_dphi"))
-        _plot_met_resolution_vs_genmet_group(samples, group_name, group_info, os.path.join(output_dir, "met_resolution_vs_genmet"))
-        _plot_response_resolution_group(samples, group_name, os.path.join(output_dir, "jet_response_resolution"))
-        _plot_response_distribution_group(samples, group_name, os.path.join(output_dir, "jet_response_distributions"))
+        #_plot_met_resolution_vs_genmet_group(samples, group_name, group_info, os.path.join(output_dir, "met_resolution_vs_genmet"))
+        #_plot_response_resolution_group(samples, group_name, os.path.join(output_dir, "jet_response_resolution"))
+        #_plot_response_distribution_group(samples, group_name, os.path.join(output_dir, "jet_response_distributions"))
+        _plot_mt_group(samples, group_name, group_info, os.path.join(output_dir, "mt_comparison"))
+        _plot_rt_group(samples, group_name, group_info, os.path.join(output_dir, "rt_comparison"))
+        _plot_deltaphimin_group(samples, group_name, group_info, os.path.join(output_dir, "deltaphimin_comparison"))
 
         # Explicitly free the data before loading the next group
         del samples

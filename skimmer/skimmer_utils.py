@@ -995,26 +995,28 @@ def apply_variation_pfnano(events, variation, year, run, pfnano_sys_file):
             events_obj[f"{met_base}_phi_official_only"] = phi_xy_off
 
     if variation in ["nominal","jec_up", "jec_down", "jer_up", "jer_down","SVJjec_up", "SVJjec_down"] and pfnano_sys_file is not None:
-        jerc_cache = {}  # Use empty dict instead of cachetools to force fresh calculations
         #load the JEC/JER variations from the pfnano file
         jerc_variations = load(pfnano_sys_file)
         #CZZ: first compute the JEC variations for AK4 and AK8 jets
         for radius in [4, 8]:
             jet_coll = "Jet" if radius == 4 else "FatJet"
 
-            if variation in ["nominal"]:  
-                
+            if variation in ["nominal"]:
+
                 #here apply JECs and JERs (undo the original jec and apply the updated ones)
+                # Fresh cache per call: apply_jercs_PFNano and propagate_jecs_to_MET_PFNano use
+                # different correction_keys (with/without NOJER), and this runs for both radii,
+                # so a shared cache risks returning stale/cross-contaminated results.
                 corrected_JERC_jets  = apply_jercs_PFNano(
                         events,
                         year,
                         run,
                         jet_coll,
                         jerc_variations,
-                        jerc_cache,
-                        ) 
-                
-                
+                        {},
+                        )
+
+
                 if radius == 4:
                     #here unpack corrections
                     corrected_MET_updated_JECs = propagate_jecs_to_MET_PFNano(
@@ -1023,8 +1025,8 @@ def apply_variation_pfnano(events, variation, year, run, pfnano_sys_file):
                         run,
                         jet_coll,
                         jerc_variations,
-                        jerc_cache,
-                        ) 
+                        {},
+                        )
 
                     met_ptcorr, met_phicorr, met_pt_uncorr, met_phi_uncorr, met_pt_official, met_phi_official = corrected_MET_updated_JECs
                     _store_met_versions(
@@ -1079,15 +1081,16 @@ def apply_variation_pfnano(events, variation, year, run, pfnano_sys_file):
                 if variation in ["SVJjec_up", "SVJjec_down"]:
 
                     #need to apply to the nominal jets the updated corrections
+                    # Fresh cache per call, same reasoning as the nominal branch above.
                     corrected_JERC_jets  = apply_jercs_PFNano(
                         events,
                         year,
                         run,
                         jet_coll,
                         jerc_variations,
-                        jerc_cache,
-                        ) 
-                    
+                        {},
+                        )
+
 
                     #apply MET-T1 correction to MET
                     if radius == 4:
@@ -1098,8 +1101,8 @@ def apply_variation_pfnano(events, variation, year, run, pfnano_sys_file):
                             run,
                             jet_coll,
                             jerc_variations,
-                            jerc_cache,
-                            ) 
+                            {},
+                            )
 
                         met_ptcorr, met_phicorr, met_pt_uncorr, met_phi_uncorr, met_pt_official, met_phi_official = corrected_MET_updated_JECs
                         _store_met_versions(
@@ -1169,8 +1172,8 @@ def apply_variation_pfnano(events, variation, year, run, pfnano_sys_file):
                             run,
                             jet_coll,
                             jerc_variations,
-                            jerc_cache,
-                            ) 
+                            {},
+                            )
 
                         met_ptcorr, met_phicorr, met_pt_uncorr, met_phi_uncorr, met_pt_official, met_phi_official = corrected_MET_updated_JECs
                         _store_met_versions(

@@ -37,6 +37,7 @@ def is_analysis_muon(muons):
 def is_veto_electron(electrons):
     return (
         is_analysis_electron(electrons)
+        & (electrons.id == 1)
         & (abs(electrons.iso) < 0.1)
     )
 
@@ -44,6 +45,7 @@ def is_veto_electron(electrons):
 def is_veto_muon(muons):
     return (
         is_analysis_muon(muons)
+        & (muons.id == 1)
         & (abs(muons.iso) < 0.4)
     )
 

@@ -814,6 +814,7 @@ def calc_custom_svj_jes_variations_PFNano(
                 run: str,
                 jet_coll: str,
                 variation: str,
+                cut_flow: dict = None,
                 ) -> ak.Array:
     
 
@@ -838,8 +839,16 @@ def calc_custom_svj_jes_variations_PFNano(
     )
 
     #fetch correction
-    #need to retrieve pT raw pT to propagate to MET 
+    #need to retrieve pT raw pT to propagate to MET
     svj_jecs, x_ratio = svjJESCalc.getVariation(direction)
+
+    # Accumulate gen-matching efficiency into cut_flow (merged correctly across chunks/
+    # workers by DictAccumulator) instead of logging directly from a worker process.
+    if cut_flow is not None:
+        matched_key = f"SVJjecGenMatched_{jet_coll}"
+        total_key = f"SVJjecGenTotal_{jet_coll}"
+        cut_flow[matched_key] = cut_flow.get(matched_key, 0) + svjJESCalc.n_matched
+        cut_flow[total_key] = cut_flow.get(total_key, 0) + svjJESCalc.n_total
     jets_corrected = ak.zip({
         "pt": events[f"{jet_coll}_pt"]*svj_jecs,
         "phi": events[f"{jet_coll}_phi"],

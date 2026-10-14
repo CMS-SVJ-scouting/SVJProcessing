@@ -697,21 +697,27 @@ def __add_weight_variations(events, variation_up, variation_down, variation_name
     sumw_nom = ak.sum(nominal_weights)
 
     if "PU" in variation_name:
+        # PU up/down replace the nominal PU weight, they are not applied on top of it
         nominal_weights = nominal_weights*computed_nominal_weights
-        events[f"{weight_name}{variation_name}"] = nominal_weights
 
+    # Compute the sum of weights for the variations. For the PUNom branches this
+    # deliberately excludes the nominal PU weight: the variation is normalized to
+    # its own sum of weights, while the PU weight stays unnormalized, as for the
+    # nominal genWeightPU (normalized by the sum of genWeight).
+    sumw_up = ak.sum(nominal_weights * variation_up)
+    sumw_down = ak.sum(nominal_weights * variation_down)
+
+    if multiply_by_pu_weights:
+        # {weight_name}PU = {weight_name} * pu_nom, set by apply_pu_nominal_weight
+        nominal_weights = events[f"{weight_name}PU"]
 
     weights_up = nominal_weights * variation_up
     weights_down = nominal_weights * variation_down
 
-    # Compute the sum of weights for the variations
-    sumw_up = ak.sum(weights_up)
-    sumw_down = ak.sum(weights_down)
-
     # Create the new branches
     if multiply_by_pu_weights:
-        events[f"{weight_name}{variation_name}UpPUNom"] = weights_up*events["genWeightPU"]
-        events[f"{weight_name}{variation_name}DownPUNom"] = weights_down*events["genWeightPU"]
+        events[f"{weight_name}{variation_name}UpPUNom"] = weights_up
+        events[f"{weight_name}{variation_name}DownPUNom"] = weights_down
     else:
         events[f"{weight_name}{variation_name}Up"] = weights_up
         events[f"{weight_name}{variation_name}Down"] = weights_down
@@ -800,19 +806,103 @@ def apply_pdf_variations(events, is_nano=False, multiply_by_pu_weight=False):
 
     return __add_weight_variations(events, variation_up, variation_down, "PDF", computed_nominal_weights=None, multiply_by_pu_weights=multiply_by_pu_weight)
 
+# ---------------------------------------------------------------------------
+# Parton-shower weight layouts
+# ---------------------------------------------------------------------------
+# Two different arrays are called "PS weights" in our inputs and they are NOT
+# interchangeable. Picking indices without checking which one you have silently
+# produces a null or mislabelled systematic, so resolve by array LENGTH.
+#
+# (1) Standard (PF)NanoAOD "PSWeight": 4 entries, a curated subset written by
+#     genWeightsTable, in the documented order
+#         [0] ISR up   (isr:muRfac=2.0)
+#         [1] FSR up   (fsr:muRfac=2.0)
+#         [2] ISR down (isr:muRfac=0.5)
+#         [3] FSR down (fsr:muRfac=0.5)
+#
+# (2) Scouting ntuples "PSweights": a RAW dump of GenEventInfoProduct::weights()
+#     (ScoutingNanoAOD_fromMiniAOD.cc: `PSweights = genEvtInfo->weights()`), i.e.
+#     46 entries in generator order with NO curation and NO reordering. The names
+#     below were read from GenLumiInfoHeader::weightNames() of the parent MiniAOD
+#     (step_MINIAOD_s-channel_..._n-1500_part-2617.root, UL18 private prod2):
+#
+#         [ 0] nominal                    [23] fsr:x2xg:cns=2.0
+#         [ 1] Baseline                   [24] isr:murfac=0.707
+#         [ 2] fsr:murfac=0.707           [25] isr:murfac=1.414
+#         [ 3] fsr:murfac=1.414           [26] isr:murfac=0.5      <- ISR down
+#         [ 4] fsr:murfac=0.5   <- FSR dn [27] isr:murfac=2.0      <- ISR up
+#         [ 5] fsr:murfac=2.0   <- FSR up [28] isr:murfac=0.25
+#         [ 6] fsr:murfac=0.25            [29] isr:murfac=4.0
+#         [ 7] fsr:murfac=4.0             [30] isr:g2gg:murfac=0.5
+#         [ 8] fsr:g2gg:murfac=0.5        [31] isr:g2gg:murfac=2.0
+#         [ 9] fsr:g2gg:murfac=2.0        [32] isr:g2qq:murfac=0.5
+#         [10] fsr:g2qq:murfac=0.5        [33] isr:g2qq:murfac=2.0
+#         [11] fsr:g2qq:murfac=2.0        [34] isr:q2qg:murfac=0.5
+#         [12] fsr:q2qg:murfac=0.5        [35] isr:q2qg:murfac=2.0
+#         [13] fsr:q2qg:murfac=2.0        [36] isr:x2xg:murfac=0.5
+#         [14] fsr:x2xg:murfac=0.5        [37] isr:x2xg:murfac=2.0
+#         [15] fsr:x2xg:murfac=2.0        [38] isr:g2gg:cns=-2.0
+#         [16] fsr:g2gg:cns=-2.0          [39] isr:g2gg:cns=2.0
+#         [17] fsr:g2gg:cns=2.0           [40] isr:g2qq:cns=-2.0
+#         [18] fsr:g2qq:cns=-2.0          [41] isr:g2qq:cns=2.0
+#         [19] fsr:g2qq:cns=2.0           [42] isr:q2qg:cns=-2.0
+#         [20] fsr:q2qg:cns=-2.0          [43] isr:q2qg:cns=2.0
+#         [21] fsr:q2qg:cns=2.0           [44] isr:x2xg:cns=-2.0
+#         [22] fsr:x2xg:cns=-2.0          [45] isr:x2xg:cns=2.0
+#
+#     CRITICAL: [0] and [1] are the UNVARIED weight (identically 1.0 on every
+#     event). Reading them as the "up" variation yields a systematic that is
+#     exactly equal to nominal -- which is what happened before this fix, while
+#     the "down" side read [2]/[3], i.e. FSR variations mislabelled as ISR.
+#
+# To regenerate this table for a new sample, read GenLumiInfoHeader::weightNames()
+# from the parent MiniAOD's LuminosityBlocks tree; the scouting ntuplizer takes
+# that handle already but only stores configDescription().
+_PS_WEIGHT_INDICES = {
+    # n_weights: {ps_type: (index_up, index_down)}
+    4:  {"ISR": (0, 2),   "FSR": (1, 3)},
+    46: {"ISR": (27, 26), "FSR": (5, 4)},
+}
+
+
+def _get_ps_weight_indices(ps_weights, ps_type):
+    """Resolve (up, down) indices for the PS weight array actually present.
+
+    Raises rather than guessing: a wrong index here is silent and produces a
+    physically meaningless nuisance.
+    """
+    counts = ak.num(ps_weights, axis=-1)
+    n_min, n_max = int(ak.min(counts)), int(ak.max(counts))
+    if n_min != n_max:
+        raise ValueError(
+            f"PS weight array has a variable length per event ({n_min}-{n_max}); "
+            f"cannot resolve the variation indices."
+        )
+    if n_min not in _PS_WEIGHT_INDICES:
+        raise ValueError(
+            f"Unrecognised PS weight array length {n_min}. Known layouts: "
+            f"{sorted(_PS_WEIGHT_INDICES)} (4 = curated NanoAOD PSWeight, "
+            f"46 = raw GenEventInfoProduct::weights() from the scouting ntuplizer). "
+            f"Read GenLumiInfoHeader::weightNames() from the parent MiniAOD and add "
+            f"the mapping to _PS_WEIGHT_INDICES before using this sample."
+        )
+    if ps_type not in _PS_WEIGHT_INDICES[n_min]:
+        raise ValueError(f"Unknown ps_type '{ps_type}' (expected 'ISR' or 'FSR')")
+    return _PS_WEIGHT_INDICES[n_min][ps_type]
+
+
 def apply_ps_variations(events,is_nano=False,ps_type="ISR", multiply_by_pu_weight=False):
     """Calculate the PS up/down variations for ISR and FSR.
     """
 
     if is_nano:
-        # PSWeight: standard (PF)NanoAOD naming; PSweights: scouting NanoAOD naming
+        # PSWeight: standard (PF)NanoAOD naming; PSweights: scouting NanoAOD naming.
+        # The two have DIFFERENT layouts, so the indices are resolved by array length
+        # rather than by branch name -- see _PS_WEIGHT_INDICES above.
         ps_weights = events.PSWeight if "PSWeight" in events.fields else events.PSweights
-        if ps_type == "ISR":
-            variation_up = ps_weights[:, 0]
-            variation_down = ps_weights[:, 2]
-        if ps_type == "FSR":
-            variation_up = ps_weights[:, 1]
-            variation_down = ps_weights[:, 3]
+        index_up, index_down = _get_ps_weight_indices(ps_weights, ps_type)
+        variation_up = ps_weights[:, index_up]
+        variation_down = ps_weights[:, index_down]
 
     else:
         raise NotImplementedError()
@@ -933,14 +1023,14 @@ def apply_lund_variation(events, var, all_events):
 ####### PFNano section ########
 ###############################
 
-def apply_variation_pfnano(events, variation, year, run, pfnano_sys_file):
+def apply_variation_pfnano(events, variation, year, run, pfnano_sys_file, cut_flow=None):
     
     #if variation is None: return events
     #if variatyion is None set variation = "nominal"
     if variation is None:
         variation = "nominal"
 
-        
+
     def _store_met_versions(
         events_obj,
         met_pt_all_corr,
@@ -1148,6 +1238,7 @@ def apply_variation_pfnano(events, variation, year, run, pfnano_sys_file):
                         run,
                         jet_coll,
                         variation,
+                        cut_flow=cut_flow,
                     )
 
                 if variation in ["jer_up", "jer_down"]: 

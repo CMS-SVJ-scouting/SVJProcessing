@@ -2,7 +2,7 @@
 
 MEMORY=4GB
 CORES=1
-CHUNK_SIZE=15000 #10000 or 1000
+CHUNK_SIZE=5000 #10000 or 1000
 N_WORKERS=40
 #EXECUTOR=dask/etpcondor   # HTCondor at KIT ETP
 PORT=3719 # port for dask scheduler, needs to be opened by admins
@@ -50,7 +50,7 @@ variations=(
 
 # Output directory for nominal samples - no variation of the uncertainties
 #output_directory=root://cmseos.fnal.gov//store/user/lpcdarkqcd/tchannel_UL/${year}/Full/PrivateSkims/${variation}
-output_directory=root://cmsdcache-kit-disk.gridka.de:1094//store/user/mgaisdor/SVJScouting_skims_full_sys
+output_directory=root://cmsdcache-kit-disk.gridka.de:1094//store/user/mgaisdor/SVJScouting_skims_full_sys_noLund
 
 
 dataset_names=(
@@ -299,7 +299,7 @@ make_skims() {
                     else
                         weight_variation_flag=""
                     fi
-                    python skim.py -i ${input_files} -o ${output_file_tmp} -p ${module} -pd ${dataset_name} -y ${year} -nano_scout -mc -xsec ${xsec} -corrfile ${pfnano_corrections_file} -e ${EXECUTOR} -port ${PORT} -n ${N_WORKERS} -c ${CHUNK_SIZE} --memory ${MEMORY} --cores ${CORES} -pn_tagger ${variation_flag} ${weight_variation_flag} ${scouting_jec_flag} -lund
+                    python skim.py -i ${input_files} -o ${output_file_tmp} -p ${module} -pd ${dataset_name} -y ${year} -nano_scout -mc -xsec ${xsec} -corrfile ${pfnano_corrections_file} -e ${EXECUTOR} -port ${PORT} -n ${N_WORKERS} -c ${CHUNK_SIZE} --memory ${MEMORY} --cores ${CORES} -pn_tagger ${variation_flag} ${weight_variation_flag} ${scouting_jec_flag} #-lund
                     #python skim.py -i ${input_files} -o ${output_file_tmp} -p ${module} -pd ${dataset_name} -y ${year} -nano_scout -mc -xsec ${xsec} -corrfile ${pfnano_corrections_file} -e ${EXECUTOR} -port ${PORT} -n ${N_WORKERS} -c ${CHUNK_SIZE} --memory ${MEMORY} --cores ${CORES} -pn_tagger ${variation_flag} ${weight_variation_flag}
                     xrdcp -f ${output_file_tmp} ${output_file}
                     echo ${output_file} has been saved.

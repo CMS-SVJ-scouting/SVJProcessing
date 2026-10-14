@@ -101,7 +101,7 @@ def fetch_resolution(correction_key,jet_coll, var):
 
 
 def check_pt_resolution(reco_pt, gen_pt, resolution):
-    m_genMatch_dPtmax = 0.3
+    m_genMatch_dPtmax = 3
     return abs(gen_pt - reco_pt) < m_genMatch_dPtmax * resolution * reco_pt
 
 

@@ -1,4 +1,5 @@
 import argparse
+import os
 from importlib import import_module
 
 import awkward as ak
@@ -31,6 +32,7 @@ class Skimmer(processor.ProcessorABC):
             pfnano_corr_file=None,
             apply_scouting_jec=True,
             lund_reweighting=False,
+            log_svjjec_gen_matching=False,
         ):
 
         self.process_function = process_function
@@ -39,6 +41,7 @@ class Skimmer(processor.ProcessorABC):
         self.nano_aod = nano_aod
         self.pfnano_corr_file = pfnano_corr_file
         self.apply_scouting_jec = apply_scouting_jec
+        self.log_svjjec_gen_matching = log_svjjec_gen_matching
         if is_mc:
             self.run = "mc"
         elif run_era:
@@ -116,7 +119,8 @@ class Skimmer(processor.ProcessorABC):
 
 
         if self.nano_aod:
-            events = skimmer_utils.apply_variation_pfnano(events, variation=self.variation, year=self.year, run=self.run, pfnano_sys_file=self.pfnano_corr_file)
+            svjjec_cut_flow = cut_flow if self.log_svjjec_gen_matching else None
+            events = skimmer_utils.apply_variation_pfnano(events, variation=self.variation, year=self.year, run=self.run, pfnano_sys_file=self.pfnano_corr_file, cut_flow=svjjec_cut_flow)
         else:
             events = skimmer_utils.apply_variation(events, self.variation)
 
@@ -301,6 +305,15 @@ def add_coffea_args(parser):
         default=None,
     )
     parser.add_argument(
+        "-log_svjjec_matching", "--log_svjjec_gen_matching",
+        help="Write SVJjec gen-matching efficiency (matched/total per jet collection) "
+             "to a log file next to the output. Off by default to avoid flooding "
+             "production runs with one file per dataset/variation; turn on for "
+             "diagnostics (e.g. when checking SVJjec_up/down coverage).",
+        default=False,
+        action='store_true',
+    )
+    parser.add_argument(
         "-wvar", "--weight_variations",
         help="What systematic weight variations to compute (choice=%(choices)s). "
              "Can choose several weights variations.",
@@ -377,6 +390,33 @@ def __prepare_cut_flow_tree(cut_flow_dict):
     return cut_flow_tree
 
 
+def __write_svjjec_gen_matching_log(cut_flow_dict, args):
+    """
+    Write SVJCustomJESCalculator's gen-matching efficiency (accumulated across all
+    chunks/workers via cut_flow) to a small per-dataset log file, one line per jet
+    collection. No-op unless this run computed SVJjec_up/down (i.e. the relevant
+    cut_flow keys are present).
+    """
+    matched_keys = [k for k in cut_flow_dict if k.startswith("SVJjecGenMatched_")]
+    if not matched_keys:
+        return
+
+    dataset_label = args.primary_dataset or args.dataset_name or "unknown_dataset"
+    log_dir = os.path.dirname(os.path.abspath(args.output_file_name)) or "."
+    os.makedirs(log_dir, exist_ok=True)
+    log_path = os.path.join(log_dir, f"svjjec_gen_matching_{dataset_label}_{args.variation_nano}.log")
+
+    with open(log_path, "w") as f:
+        for matched_key in sorted(matched_keys):
+            jet_coll = matched_key[len("SVJjecGenMatched_"):]
+            n_matched = cut_flow_dict[matched_key]
+            n_total = cut_flow_dict.get(f"SVJjecGenTotal_{jet_coll}", 0)
+            eff = (n_matched / n_total) if n_total > 0 else float("nan")
+            f.write(f"{jet_coll}: gen-matched {n_matched}/{n_total} jets ({100*eff:.2f}%)\n")
+
+    log.info(f"Wrote SVJjec gen-matching efficiency to {log_path}")
+
+
 def __prepare_uproot_job_kwargs_from_coffea_args(args):
 
     process_module = import_module(args.process_module_name)
@@ -441,6 +481,7 @@ def __prepare_uproot_job_kwargs_from_coffea_args(args):
             pfnano_corr_file=args.pfnano_corrections_file,
             apply_scouting_jec=not args.disable_scouting_jec,
             lund_reweighting=args.lund_reweighting,
+            log_svjjec_gen_matching=args.log_svjjec_gen_matching,
         ),
         "executor": executor,
         "executor_args": executor_args,
@@ -545,6 +586,9 @@ def main():
 
 
     # Making output ROOT file
+    if args.log_svjjec_gen_matching:
+        __write_svjjec_gen_matching_log(accumulator["cut_flow"].value, args)
+
     cut_flow_tree = __prepare_cut_flow_tree(accumulator["cut_flow"].value)
     if args.skim_source:
         # use original values from the skim's cutFlow

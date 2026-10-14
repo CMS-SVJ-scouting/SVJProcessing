@@ -15,7 +15,7 @@ selection_name=s_channel_scouting_pre_selection
 #module=analysis_configs.t_channel_lost_lepton_control_region
 #selection_name=t_channel_lost_lepton_control_region
 
-year=2018
+year=2017
 
 dataset_names=(
     #
@@ -133,7 +133,7 @@ prepare_input_files_list() {
     echo "Preparing input files for dataset ${dataset_name} year ${year} and selection ${selection_name}"
 
     python list_dataset_files.py -d ${dataset_name} -y ${year} -c ${dataset_config} -o ${dataset_directory} -nano_scout
-    #python compute_unweighted_selection_efficiency.py -d ${dataset_name} -y ${year} -p ${module} -s ${selection_name} -i ${dataset_directory} -o ${dataset_directory} -n 30 -e futures -c 1000 -nano_scout  -precision 15
+    python compute_unweighted_selection_efficiency.py -d ${dataset_name} -y ${year} -p ${module} -s ${selection_name} -i ${dataset_directory} -o ${dataset_directory} -n 30 -e futures -c 1000 -nano_scout  -precision 15
     python prepare_input_files_list.py -d ${dataset_name} -y ${year} -s ${selection_name} -i ${dataset_directory} -o ${dataset_directory} -m 10000 #5000
 }
 

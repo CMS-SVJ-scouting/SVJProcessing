@@ -67,12 +67,12 @@ def process(events, cut_flow, year, primary_dataset="", dataset_name="", pn_tagg
             "phi": events.Jet_phi[events.Jet_isGood],
         })
         veto_electrons = ak.zip({
-            "eta": events.Electron_eta[events.Electron_isVeto],
-            "phi": events.Electron_phi[events.Electron_isVeto],
+            "eta": events.Electron_eta[events.Electron_isVeto == 1],
+            "phi": events.Electron_phi[events.Electron_isVeto == 1],
         })
         veto_muons = ak.zip({
-            "eta": events.Muon_eta[events.Muon_isVeto],
-            "phi": events.Muon_phi[events.Muon_isVeto],
+            "eta": events.Muon_eta[events.Muon_isVeto == 1],
+            "phi": events.Muon_phi[events.Muon_isVeto == 1],
         })
         if year == "2018" and skimmer_utils.is_data(events):
             events = skimmer_utils.apply_hem_veto(events, good_ak4_jets, veto_electrons, veto_muons)
@@ -87,17 +87,20 @@ def process(events, cut_flow, year, primary_dataset="", dataset_name="", pn_tagg
         events = events[filter]
     skimmer_utils.update_cut_flow(cut_flow, "nJetsAK8Gt2", events)
 
-    # veto events with mini-isolated leptons (muons and electrons)
+    # veto events with mini-isolated leptons (electrons, then muons)
     if len(events) != 0:
         events = sequences.add_n_lepton_veto_branch(events)
-        events = sequences.apply_isolated_lepton_veto(events)
+        events = sequences.apply_isolated_electron_veto(events)
+    skimmer_utils.update_cut_flow(cut_flow, "IsolatedElectronVeto", events)
 
-    skimmer_utils.update_cut_flow(cut_flow, "IsolatedLeptonVeto", events)
+    if len(events) != 0:
+        events = sequences.apply_isolated_muon_veto(events)
+    skimmer_utils.update_cut_flow(cut_flow, "IsolatedMuonVeto", events)
 
     # MET filters — good primary vertex filter
-    # Require PV_isValidVtx == 1, |PV_z| <= 24, sqrt(PV_x²+PV_y²) < 2
+    # Require PV_isValidVtx == 1 (not for 2016, not stored), |PV_z| <= 24, sqrt(PV_x²+PV_y²) < 2
     if len(events) != 0:
-        events = sequences.add_good_pv_branch(events)
+        events = sequences.add_good_pv_branch(events, year)
         filter_good_pv = ak.sum(events.PV_isGood, axis=1) >= 1
         events = events[filter_good_pv]
     skimmer_utils.update_cut_flow(cut_flow, "goodVerticesFilter", events)

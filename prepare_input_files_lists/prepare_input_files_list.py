@@ -88,13 +88,12 @@ def __prepare_input_files_list(
         with open(input_files_list) as f:
             csv_reader = csv.reader(f)
             sum = 0
-            output_files_list.append([])
             next(csv_reader)
             for line in csv_reader:
                 file_name = line[0]
                 n_events = int(line[1])
                 n_selected_events = n_events * selection_efficiency
-                if sum + n_selected_events <= max_events:
+                if output_files_list and sum + n_selected_events <= max_events:
                     output_files_list[-1].append(file_name)
                 else:
                     output_files_list.append([file_name])

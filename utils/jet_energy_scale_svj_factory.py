@@ -56,7 +56,15 @@ class SVJCustomJESCalculator:
                                                                     jets["event_rho"]
                                                                     )
 
-        
+        # Record hybrid gen-matching efficiency before filling None -> 0. Unmatched jets
+        # (None here) get their SVJjec ratio forced to 1 downstream, i.e. no variation
+        # is applied to them at all. Stored on self (not logged directly) so the caller
+        # can accumulate it into the coffea cut_flow accumulator, which merges correctly
+        # across chunks/workers - a plain log call here would interleave/be lost across
+        # the parallel futures workers used in production.
+        self.n_total = int(ak.sum(ak.num(jets["pt_gen"], axis=1)))
+        self.n_matched = int(ak.sum(ak.count(jets["pt_gen"], axis=1)))
+
         jets = ak.zip({
                 "pt": self.events[f"{self.jet_coll}_pt"],
                 "pt_gen": ak.values_astype(ak.fill_none(jets["pt_gen"], 0), np.float32),

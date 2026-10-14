@@ -156,8 +156,20 @@ def _compute_electron_id(events):
     return as_type(passID, int)
 
 
+MUON_ID_FIELDS = ["Muon_isGlobal", "Muon_isTracker"]
+_warned_missing_muon_id = False
+
+
 def _compute_muon_id(events):
     # Loose muon ID: global muon or tracker muon
+    # Not available in scouting data (no muon ID branches stored): all muons pass the ID
+    if any(field not in events.fields for field in MUON_ID_FIELDS):
+        global _warned_missing_muon_id
+        if not _warned_missing_muon_id:
+            print(f"Warning: missing {MUON_ID_FIELDS}, muon veto applied without muon ID")
+            _warned_missing_muon_id = True
+        return ak.values_astype(ak.ones_like(events["Muon_pt"]), int)
+
     passID = (
         events["Muon_isGlobal"]
         | events["Muon_isTracker"]
@@ -211,12 +223,16 @@ def add_good_ak4_jet_branch(events):
     return events
 
 
-def add_good_pv_branch(events):
+def add_good_pv_branch(events, year=None):
     is_good_pv = (
-        (events.PV_isValidVtx == 1)
-        & (abs(events.PV_z) <= 24)
+        (abs(events.PV_z) <= 24)
         & ((events.PV_x**2 + events.PV_y**2) < 4)
     )
+    # The 2016 ScoutingVertex format (ClassVersion 2) only stores x, y, z and zError;
+    # isValidVtx, ndof, chi2, tracksSize and x/yError are schema-evolution defaults (0)
+    # in the ntuples, so they cannot be used for 2016.
+    if year not in ("2016", "2016APV"):
+        is_good_pv = is_good_pv & (events.PV_isValidVtx == 1)
     events["PV_isGood"] = as_type(is_good_pv, int)
     return events
 
@@ -226,8 +242,12 @@ def add_veto_leptons_branches(events):
     if electrons is None or muons is None:
         print("Warning: missing electron or muon collections, cannot compute veto lepton branches")
         n_events = ak.num(events.FatJet_pt, axis=0)
-        events["Electron_isVeto"] = as_type(ak.Array([[]] * n_events), int)
-        events["Muon_isVeto"] = as_type(ak.Array([[]] * n_events), int)
+        for collection in ["Electron", "Muon"]:
+            # Same shape as the collection so that it can be used as a mask
+            if f"{collection}_pt" in events.fields:
+                events[f"{collection}_isVeto"] = ak.values_astype(ak.zeros_like(events[f"{collection}_pt"]), int)
+            else:
+                events[f"{collection}_isVeto"] = as_type(ak.Array([[]] * n_events), int)
     else:
         events["Electron_isVeto"] = as_type(obj.is_veto_electron(electrons), int)
         events["Muon_isVeto"] = as_type(obj.is_veto_muon(muons), int)
@@ -252,8 +272,7 @@ def _build_scouting_lepton_collections(events):
         "Muon_pt",
         "Muon_eta",
         "Muon_combinedMiniIso",
-        "Muon_isGlobal",
-        "Muon_isTracker",
+        # Muon ID fields are optional, see _compute_muon_id
     ]
 
     if any(field not in events.fields for field in required_fields):
@@ -342,6 +361,17 @@ def apply_isolated_lepton_veto(
 
     return events
 
+
+def apply_isolated_electron_veto(events):
+    # Needs Electron_isVeto, see add_veto_leptons_branches
+    return events[ak.sum(events.Electron_isVeto, axis=1) == 0]
+
+
+def apply_isolated_muon_veto(events):
+    # Needs Muon_isVeto, see add_veto_leptons_branches
+    return events[ak.sum(events.Muon_isVeto, axis=1) == 0]
+
+
 def add_analysis_branches(events):
 
     # Event variables
@@ -396,10 +426,10 @@ def add_dark_quark_matching(events):
         mass=events.MatrixElementGenParticle_mass,
     )
 
-    # delta R matching between jets and dark quarks
-    dR1 = jets.delta_r(dark_quarks[:,0]) <= 0.8
-    dR2 = jets.delta_r(dark_quarks[:,1]) <= 0.8
-    matched_mask = dR1 | dR2
+    # delta R matching between jets and the two dark quarks
+    # Events can have fewer than two dark quarks stored: match to those present
+    jets_, dark_quarks_ = ak.unzip(ak.cartesian([jets, dark_quarks[:, :2]], nested=True))
+    matched_mask = ak.any(jets_.delta_r(dark_quarks_) <= 0.8, axis=-1)
 
     #add new branch to the event tree
     events["FatJet_DarkQuarkMatched"] = ak.values_astype(matched_mask, "uint32")

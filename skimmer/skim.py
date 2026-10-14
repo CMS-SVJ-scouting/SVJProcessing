@@ -33,6 +33,8 @@ class Skimmer(processor.ProcessorABC):
             apply_scouting_jec=True,
             lund_reweighting=False,
             log_svjjec_gen_matching=False,
+            apply_jer=True,
+            apply_residuals=True,
         ):
 
         self.process_function = process_function
@@ -42,6 +44,8 @@ class Skimmer(processor.ProcessorABC):
         self.pfnano_corr_file = pfnano_corr_file
         self.apply_scouting_jec = apply_scouting_jec
         self.log_svjjec_gen_matching = log_svjjec_gen_matching
+        self.apply_jer = apply_jer
+        self.apply_residuals = apply_residuals
         if is_mc:
             self.run = "mc"
         elif run_era:
@@ -120,7 +124,7 @@ class Skimmer(processor.ProcessorABC):
 
         if self.nano_aod:
             svjjec_cut_flow = cut_flow if self.log_svjjec_gen_matching else None
-            events = skimmer_utils.apply_variation_pfnano(events, variation=self.variation, year=self.year, run=self.run, pfnano_sys_file=self.pfnano_corr_file, cut_flow=svjjec_cut_flow)
+            events = skimmer_utils.apply_variation_pfnano(events, variation=self.variation, year=self.year, run=self.run, pfnano_sys_file=self.pfnano_corr_file, cut_flow=svjjec_cut_flow, apply_jer=self.apply_jer, apply_residuals=self.apply_residuals)
         else:
             events = skimmer_utils.apply_variation(events, self.variation)
 
@@ -267,6 +271,18 @@ def add_coffea_args(parser):
     parser.add_argument(
         '--disable_scouting_jec',
         help='Disable custom scouting JEC residual corrections before official PFNano variations',
+        default=False,
+        action='store_true',
+    )
+    parser.add_argument(
+        '--disable_jer',
+        help='Disable JER smearing for MC (forces NOJER correction key)',
+        default=False,
+        action='store_true',
+    )
+    parser.add_argument(
+        '--disable_residuals',
+        help='Disable L2L3Residual corrections for data (forces NORES correction key)',
         default=False,
         action='store_true',
     )
@@ -482,6 +498,8 @@ def __prepare_uproot_job_kwargs_from_coffea_args(args):
             apply_scouting_jec=not args.disable_scouting_jec,
             lund_reweighting=args.lund_reweighting,
             log_svjjec_gen_matching=args.log_svjjec_gen_matching,
+            apply_jer=not args.disable_jer,
+            apply_residuals=not args.disable_residuals,
         ),
         "executor": executor,
         "executor_args": executor_args,

@@ -180,24 +180,44 @@ for year in years:
         for bin in zjets_bins
     })
 
-datasets_info["2017"].update({
-    run: [
-        {
-            "redirector": "root://cmsdcache-kit-disk.gridka.de:1094/",
-            "path": f"/store/user/mgaisdor/SVJScouting_ntuples/Data/2017_v2/{run}",
-            "regex": f"",
-        },
-    ]
-    for run in ["Run2017C", "Run2017D", "Run2017E", "Run2017F"]
-})
 
-datasets_info["2018"].update({
-    run: [
-        {
-            "redirector": "root://cmsdcache-kit-disk.gridka.de:1094/",
-            "path": f"/store/user/mgaisdor/SVJScouting_ntuples/Data/2018_v2/{run}",
-            "regex": f"",
-        },
-    ]
-    for run in ["Run2018A", "Run2018B", "Run2018C", "Run2018D"]
-})
+# Data: dataset name -> directories under Data/{year}_v3/ (one era can span several versions)
+data_runs = {
+    "2016": {
+        "Run2016B": ["Run2016B-v1", "Run2016B-v2"],
+        "Run2016C": ["Run2016C-v2"],
+        "Run2016D": ["Run2016D-v2"],
+        "Run2016E": ["Run2016E-v2"],
+        "Run2016F": ["Run2016F-v1"],
+        "Run2016G": ["Run2016G-v1"],
+        "Run2016H": ["Run2016H-v1"],
+    },
+    "2017": {
+        "Run2017C": ["Run2017C-v1"],
+        "Run2017D": ["Run2017D-v1"],
+        "Run2017E": ["Run2017E-v1"],
+        "Run2017F": ["Run2017F-v1"],
+    },
+    "2018": {
+        "Run2018A": ["Run2018A-v1"],
+        "Run2018B": ["Run2018B-v1"],
+        "Run2018C": ["Run2018C-v1"],
+        "Run2018D": ["Run2018D-v1"],
+    },
+}
+
+# 2016: data only, no MC
+datasets_info["2016"] = {}
+
+for year, runs in data_runs.items():
+    datasets_info[year].update({
+        run: [
+            {
+                "redirector": "root://cmsdcache-kit-disk.gridka.de:1094/",
+                "path": f"/store/user/mgaisdor/SVJScouting_ntuples/Data/{year}_v3/{directory}",
+                "regex": f"",
+            }
+            for directory in directories
+        ]
+        for run, directories in runs.items()
+    })

@@ -249,8 +249,10 @@ def add_veto_leptons_branches(events):
             else:
                 events[f"{collection}_isVeto"] = as_type(ak.Array([[]] * n_events), int)
     else:
-        events["Electron_isVeto"] = as_type(obj.is_veto_electron(electrons), int)
-        events["Muon_isVeto"] = as_type(obj.is_veto_muon(muons), int)
+        is_good_electron = (obj.is_veto_electron(electrons))
+        is_good_muon = (obj.is_veto_muon(muons))
+        events["Electron_isVeto"] = is_good_electron 
+        events["Muon_isVeto"] = is_good_muon
     return events
 
 
@@ -439,7 +441,8 @@ def add_dark_quark_matching(events):
 
 def apply_scouting_phi_spike_filter(events, year):
     """Phi spike filter using only the subleading good AK4 jet.
-    Bin centers and radius are read from data/dead_cells/outlier_centers_{year}.txt.
+    Bin centers and radius are read from data/dead_cells/outlier_centers_{year}.txt
+    (2016APV uses the 2016 file).
     The distance check follows the convention dist² < rad (consistent with apply_phi_spike_filter).
     """
     import os
@@ -448,7 +451,8 @@ def apply_scouting_phi_spike_filter(events, year):
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
         "data", "dead_cells"
     )
-    filepath = os.path.join(data_dir, f"outlier_centers_{year}.txt")
+    # 2016APV (preVFP MC) uses the same dead-cell map as 2016
+    filepath = os.path.join(data_dir, f"outlier_centers_{year.replace('APV', '')}.txt")
 
     rad = 0.028816 * 0.35  # half-diagonal of eta-phi cell, factor 0.35 optimized for s/b sensitivity
 

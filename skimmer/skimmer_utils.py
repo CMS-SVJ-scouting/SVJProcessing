@@ -1023,7 +1023,7 @@ def apply_lund_variation(events, var, all_events):
 ####### PFNano section ########
 ###############################
 
-def apply_variation_pfnano(events, variation, year, run, pfnano_sys_file, cut_flow=None):
+def apply_variation_pfnano(events, variation, year, run, pfnano_sys_file, cut_flow=None, apply_jer=True, apply_residuals=True):
     
     #if variation is None: return events
     #if variatyion is None set variation = "nominal"
@@ -1104,6 +1104,8 @@ def apply_variation_pfnano(events, variation, year, run, pfnano_sys_file, cut_fl
                         jet_coll,
                         jerc_variations,
                         {},
+                        apply_jer=apply_jer,
+                        apply_residuals=apply_residuals,
                         )
 
 
@@ -1116,6 +1118,7 @@ def apply_variation_pfnano(events, variation, year, run, pfnano_sys_file, cut_fl
                         jet_coll,
                         jerc_variations,
                         {},
+                        apply_residuals=apply_residuals,
                         )
 
                     met_ptcorr, met_phicorr, met_pt_uncorr, met_phi_uncorr, met_pt_official, met_phi_official = corrected_MET_updated_JECs
@@ -1179,6 +1182,8 @@ def apply_variation_pfnano(events, variation, year, run, pfnano_sys_file, cut_fl
                         jet_coll,
                         jerc_variations,
                         {},
+                        apply_jer=apply_jer,
+                        apply_residuals=apply_residuals,
                         )
 
 
@@ -1192,6 +1197,7 @@ def apply_variation_pfnano(events, variation, year, run, pfnano_sys_file, cut_fl
                             jet_coll,
                             jerc_variations,
                             {},
+                            apply_residuals=apply_residuals,
                             )
 
                         met_ptcorr, met_phicorr, met_pt_uncorr, met_phi_uncorr, met_pt_official, met_phi_official = corrected_MET_updated_JECs
@@ -1264,6 +1270,7 @@ def apply_variation_pfnano(events, variation, year, run, pfnano_sys_file, cut_fl
                             jet_coll,
                             jerc_variations,
                             {},
+                            apply_residuals=apply_residuals,
                             )
 
                         met_ptcorr, met_phicorr, met_pt_uncorr, met_phi_uncorr, met_pt_official, met_phi_official = corrected_MET_updated_JECs
@@ -1414,7 +1421,9 @@ def apply_variation_pfnano(events, variation, year, run, pfnano_sys_file, cut_fl
                     jet_coll,
                     jerc_variations,
                     jerc_cache,
-                    ) 
+                    apply_jer=apply_jer,
+                    apply_residuals=apply_residuals,
+                    )
             
             #unpack corrected_JER_jets
             jec_corr_pt, jec_corr_eta, jec_corr_phi, jec_corr_mass, jec_pt_uncorr, jec_mass_uncorr = corrected_JEC_jets

@@ -10,6 +10,10 @@ _DATA_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__), "../data"))
 # correctionlib CorrectionSet cache: year_str -> CorrectionSet
 _met_xy_cache = {}
 
+# First run of 2016 after the VFP change, i.e. first run of the 2016_UL
+# (postVFP) MET XY corrections; earlier runs are in the 2016APV_UL ones
+_FIRST_RUN_POST_VFP_2016 = 278769
+
 
 def _get_year_str_for_met_xy(year):
     """Map a year value (str or int) to the key used in data/jme/met/ directory names."""
@@ -45,14 +49,6 @@ def apply_met_xy_corrections(met_pt, met_phi, year, npv, run_arr, is_data):
     """
     year_str = _get_year_str_for_met_xy(year)
 
-    if year_str not in _met_xy_cache:
-        json_path = os.path.join(_DATA_DIR, "jme", "met", f"{year_str}_UL", "met.json.gz")
-        if not os.path.exists(json_path):
-            raise FileNotFoundError(f"MET XY correction file not found: {json_path}")
-        _met_xy_cache[year_str] = _correctionlib.CorrectionSet.from_file(json_path)
-
-    cset = _met_xy_cache[year_str]
-
     # Clip npv and pt to the valid range of the correction table.
     # These are physical upper bounds (npv>200 is unphysical; pt>1000 is
     # extremely rare and outside the fitted range), so clipping is safe.
@@ -61,13 +57,40 @@ def apply_met_xy_corrections(met_pt, met_phi, year, npv, run_arr, is_data):
     phi_arr     = awkward.to_numpy(met_phi).astype(float)
     run_np      = awkward.to_numpy(run_arr).astype(float)
 
-    if is_data:
-        corrected_pt  = cset["pt_metphicorr_pfmet_data"].evaluate(pt_clipped, phi_arr, npv_clipped, run_np)
-        corrected_phi = cset["phi_metphicorr_pfmet_data"].evaluate(pt_clipped, phi_arr, npv_clipped, run_np)
-    else:
-        corrected_pt  = cset["pt_metphicorr_pfmet_mc"].evaluate(pt_clipped, phi_arr, npv_clipped, run_np)
-        corrected_phi = cset["phi_metphicorr_pfmet_mc"].evaluate(pt_clipped, phi_arr, npv_clipped, run_np)
+    if is_data and year_str == "2016":
+        # 2016 data is processed with a single year label, but the corrections
+        # are split at the VFP change: pick the file from the run number.
+        # MC is split by year label instead ("2016APV" / "2016").
+        is_pre_vfp = run_np < _FIRST_RUN_POST_VFP_2016
+        corrected_pt  = numpy.empty_like(pt_clipped)
+        corrected_phi = numpy.empty_like(phi_arr)
+        for mask, year_str_ in ((is_pre_vfp, "2016APV"), (~is_pre_vfp, "2016")):
+            if not numpy.any(mask):
+                continue
+            corrected_pt[mask], corrected_phi[mask] = _evaluate_met_xy(
+                _get_met_xy_correction_set(year_str_), "data",
+                pt_clipped[mask], phi_arr[mask], npv_clipped[mask], run_np[mask],
+            )
+        return corrected_pt, corrected_phi
 
+    return _evaluate_met_xy(
+        _get_met_xy_correction_set(year_str), "data" if is_data else "mc",
+        pt_clipped, phi_arr, npv_clipped, run_np,
+    )
+
+
+def _get_met_xy_correction_set(year_str):
+    if year_str not in _met_xy_cache:
+        json_path = os.path.join(_DATA_DIR, "jme", "met", f"{year_str}_UL", "met.json.gz")
+        if not os.path.exists(json_path):
+            raise FileNotFoundError(f"MET XY correction file not found: {json_path}")
+        _met_xy_cache[year_str] = _correctionlib.CorrectionSet.from_file(json_path)
+    return _met_xy_cache[year_str]
+
+
+def _evaluate_met_xy(cset, data_type, pt, phi, npv, run):
+    corrected_pt  = cset[f"pt_metphicorr_pfmet_{data_type}"].evaluate(pt, phi, npv, run)
+    corrected_phi = cset[f"phi_metphicorr_pfmet_{data_type}"].evaluate(pt, phi, npv, run)
     return corrected_pt, corrected_phi
 
 #here function from coffea METCorrector corrector to be used to update T1 MET with current JECs applied

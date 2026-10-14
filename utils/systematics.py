@@ -12,15 +12,7 @@ from utils.met_significance_factory_pfnano import MetSignificanceCalculator
 # covers multiple run eras (e.g. Fall17_17Nov2017DE covers both Run D and Run E).
 # year_era uses the resolved prefix: "2016preVFP", "2016postVFP", "2017", "2018".
 _RUN_ERA_TO_JEC_ERA = {
-    # 2016 preVFP: B, C, D all share the BCD JEC file
-    ("2016preVFP", "dataB"):   "dataBCD",
-    ("2016preVFP", "dataC"):   "dataBCD",
-    ("2016preVFP", "dataD"):   "dataBCD",
-    # 2016 postVFP: E+F share EF; G+H share GH
-    ("2016postVFP", "dataE"):  "dataEF",
-    ("2016postVFP", "dataF"):  "dataEF",
-    ("2016postVFP", "dataG"):  "dataGH",
-    ("2016postVFP", "dataH"):  "dataGH",
+    # 2016 data: see _2016_DATA_JEC_KEYS
     # 2017: D and E share the DE JEC file; B, C, F are individual
     ("2017", "dataD"):         "dataDE",
     ("2017", "dataE"):         "dataDE",
@@ -45,6 +37,34 @@ def _map_run_to_jec_era(run, year):
     """
     year_era = _resolve_year_era(year)
     return _RUN_ERA_TO_JEC_ERA.get((year_era, run), run)
+
+# The 2016 data JECs (Legacy Summer16_07Aug2017) are split by era only, they
+# have no pre/postVFP split: the preVFP/postVFP prefix of the factory keys is
+# just a label. The key is therefore chosen from the era alone, so that all
+# 2016 data can be processed with year="2016".
+_2016_DATA_JEC_KEYS = {
+    "dataB": "2016preVFPdataBCD",
+    "dataC": "2016preVFPdataBCD",
+    "dataD": "2016preVFPdataBCD",
+    "dataE": "2016postVFPdataEF",
+    "dataF": "2016postVFPdataEF",
+    "dataG": "2016postVFPdataGH",
+    "dataH": "2016postVFPdataGH",
+}
+
+def _get_correction_key(year, run, label=""):
+    """
+    Build the jet/fatjet factory key, e.g.
+         year='2016', run='dataB' -> '2016preVFPdataBCD'
+         year='2016APV', run='mc' -> '2016preVFPmc'
+         year='2017', run='dataD' -> '2017dataDE'
+    """
+    if "2016" in year and run in _2016_DATA_JEC_KEYS:
+        return f"{_2016_DATA_JEC_KEYS[run]}{label}"
+    if "2016" in year:
+        return f"{_resolve_year_era(year)}{run}{label}"
+    return f"{year}{_map_run_to_jec_era(run, year)}{label}"
+
 
 
 def calc_jec_variation(
@@ -346,14 +366,7 @@ def apply_jers_PFNano(
     # jerc_key_label = "NOJEC"  # COMMENTED TO TEST JER
 
     #build jet corrections
-    correction_key = None
-    if "2016" in year:
-        if "APV" in year:
-            correction_key = f"{year.replace('APV','preVFP')}{_map_run_to_jec_era(run, year)}{jerc_key_label}" 
-        else:
-            correction_key = f"2016postVFP{_map_run_to_jec_era(run, year)}{jerc_key_label}"
-    else:
-        correction_key = f"{year}{_map_run_to_jec_era(run, year)}{jerc_key_label}" 
+    correction_key = _get_correction_key(year, run, jerc_key_label)
 
     # Check if using scouting data (rho) or standard NanoAOD (fixedGridRhoFastjetAll)
     rho = events.rho if "rho" in events.fields else events.fixedGridRhoFastjetAll
@@ -387,14 +400,7 @@ def apply_jecs_PFNano(
 
 
     #build jet corrections
-    correction_key = None
-    if "2016" in year:
-        if "APV" in year:
-            correction_key = f"{year.replace('APV','preVFP')}{_map_run_to_jec_era(run, year)}{jerc_key_label}" 
-        else:
-            correction_key = f"2016postVFP{_map_run_to_jec_era(run, year)}{jerc_key_label}"
-    else:
-        correction_key = f"{year}{_map_run_to_jec_era(run, year)}{jerc_key_label}" 
+    correction_key = _get_correction_key(year, run, jerc_key_label)
 
     # Check if using scouting data (rho) or standard NanoAOD (fixedGridRhoFastjetAll)
     rho = events.rho if "rho" in events.fields else events.fixedGridRhoFastjetAll
@@ -422,24 +428,19 @@ def apply_jercs_PFNano(
     jet_coll: str,
     jerc_variations: dict,
     jerc_cache: dict,
+    apply_jer: bool = True,
+    apply_residuals: bool = True,
     ) -> ak.Array:
-    
+
     jet_factory = jerc_variations[f'{jet_coll.lower()}_factory']
 
-    # calculate all variables needed as inputs, apply both JEC and JER
     # JER smearing only applies to MC; for data use NOJER key (JEC residuals only)
-    jerc_key_label = "NOJER" if "data" in run.lower() else ""
-    # jerc_key_label = "NOJER" 
+    jerc_key_label = "NOJER" if ("data" in run.lower() or not apply_jer) else ""
+    if not apply_residuals and "data" in run.lower():
+        jerc_key_label += "NORES"
 
     #build jet corrections
-    correction_key = None
-    if "2016" in year:
-        if "APV" in year:
-            correction_key = f"{year.replace('APV','preVFP')}{_map_run_to_jec_era(run, year)}{jerc_key_label}" 
-        else:
-            correction_key = f"2016postVFP{_map_run_to_jec_era(run, year)}{jerc_key_label}"
-    else:
-        correction_key = f"{year}{_map_run_to_jec_era(run, year)}{jerc_key_label}" 
+    correction_key = _get_correction_key(year, run, jerc_key_label)
 
     # Check if using scouting data (rho) or standard NanoAOD (fixedGridRhoFastjetAll)
     rho = events.rho if "rho" in events.fields else events.fixedGridRhoFastjetAll
@@ -467,28 +468,22 @@ def propagate_jecs_to_MET_PFNano(
                 jet_coll: str,
                 jerc_variations: dict,
                 jerc_cache: dict,
+                apply_residuals: bool = True,
                 ) -> ak.Array:
-    
+
     jet_factory = jerc_variations[f'{jet_coll.lower()}_factory']
 
 
     # calculate all variables needed as inputs
-    jerc_key_label = "NOJER"
+    jerc_key_label = "NOJERNORES" if not apply_residuals else "NOJER"
 
 
     #build jet corrections
-    correction_key = None
-    if "2016" in year:
-        if "APV" in year:
-            correction_key = f"{year.replace('APV','preVFP')}{_map_run_to_jec_era(run, year)}{jerc_key_label}" 
-        else:
-            correction_key = f"2016postVFP{_map_run_to_jec_era(run, year)}{jerc_key_label}"
-    else:
-        correction_key = f"{year}{_map_run_to_jec_era(run, year)}{jerc_key_label}" 
+    correction_key = _get_correction_key(year, run, jerc_key_label)
 
     # Check if using scouting data (rho) or standard NanoAOD (fixedGridRhoFastjetAll)
     rho = events.rho if "rho" in events.fields else events.fixedGridRhoFastjetAll
-    
+
     # Use CorrT1METJet for T1 MET jets if available, otherwise fall back to jet_coll
     t1met_coll = "CorrT1METJet" if "CorrT1METJet_pt" in events.fields else jet_coll
 
@@ -566,14 +561,7 @@ def propagate_jecs_to_METSig_PFNano(
     jerc_key_label = ""
 
     #build jet corrections
-    correction_key = None
-    if "2016" in year:
-        if "APV" in year:
-            correction_key = f"{year.replace('APV','preVFP')}{_map_run_to_jec_era(run, year)}{jerc_key_label}" 
-        else:
-            correction_key = f"2016postVFP{_map_run_to_jec_era(run, year)}{jerc_key_label}"
-    else:
-        correction_key = f"{year}{_map_run_to_jec_era(run, year)}{jerc_key_label}" 
+    correction_key = _get_correction_key(year, run, jerc_key_label)
 
     # Check if using scouting data (rho) or standard NanoAOD (fixedGridRhoFastjetAll)
     rho = events.rho if "rho" in events.fields else events.fixedGridRhoFastjetAll
@@ -650,14 +638,7 @@ def calc_jerc_variations_PFNano(
         access_jerc_corr_jets = "JER"
 
     #build jet corrections
-    correction_key = None
-    if "2016" in year:
-        if "APV" in year:
-            correction_key = f"{year.replace('APV','preVFP')}{_map_run_to_jec_era(run, year)}{jerc_key_label}" 
-        else:
-            correction_key = f"2016postVFP{_map_run_to_jec_era(run, year)}{jerc_key_label}"
-    else:
-        correction_key = f"{year}{_map_run_to_jec_era(run, year)}{jerc_key_label}" 
+    correction_key = _get_correction_key(year, run, jerc_key_label)
 
     
     # Check if using scouting data (rho) or standard NanoAOD (fixedGridRhoFastjetAll)
@@ -748,14 +729,7 @@ def calc_unclustered_met_variations_PFNano(
 
 
     #build jet corrections
-    correction_key = None
-    if "2016" in year:
-        if "APV" in year:
-            correction_key = f"{year.replace('APV','preVFP')}{_map_run_to_jec_era(run, year)}{jerc_key_label}" 
-        else:
-            correction_key = f"2016postVFP{_map_run_to_jec_era(run, year)}{jerc_key_label}"
-    else:
-        correction_key = f"{year}{_map_run_to_jec_era(run, year)}{jerc_key_label}" 
+    correction_key = _get_correction_key(year, run, jerc_key_label)
 
     # Check if using scouting data (rho) or standard NanoAOD (fixedGridRhoFastjetAll)
     rho = events.rho if "rho" in events.fields else events.fixedGridRhoFastjetAll
@@ -819,14 +793,7 @@ def calc_custom_svj_jes_variations_PFNano(
     
 
     #build jet corrections
-    correction_key = None
-    if "2016" in year:
-        if "APV" in year:
-            correction_key = f"2016preVFP{_map_run_to_jec_era(run, year)}"
-        else:
-            correction_key = f"2016postVFP{_map_run_to_jec_era(run, year)}"
-    else:
-        correction_key = f"{year}{_map_run_to_jec_era(run, year)}"
+    correction_key = _get_correction_key(year, run)
 
     #extract the direction of the variation
     direction = "up" if "up" in variation else "down"

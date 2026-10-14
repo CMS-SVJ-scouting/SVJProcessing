@@ -2,17 +2,17 @@
 
 N_WORKERS=6
 
-dataset_directory=/ceph/mgais/Run2ScoutingSkims_JEC
+dataset_directory=/ceph/mgais/Run2ScoutingSkims_v3
 
 selection_name=s_channel_scouting_pre_selection/nominal
 #selection_name=t_channel_wnae_qcd_training_region
 #selection_name=t_channel_wnae_top_training_region
 #selection_name=t_channel_lost_lepton_control_region
 
-year=2018
+year=2017
 
 # Output directory for nominal samples - no variation of the uncertainties
-output_directory=root://cmsdcache-kit-disk.gridka.de:1094//store/user/mgaisdor/SVJScouting_skims_v2
+output_directory=root://cmsdcache-kit-disk.gridka.de:1094//store/user/mgaisdor/SVJScouting_skims_v3_noResiduals
 
 
 dataset_names=(
@@ -83,9 +83,9 @@ dataset_names=(
     # QCD_HT300to500
     # QCD_HT500to700
 
-    # #
-    # # TTJets
-    # #
+    #
+    # TTJets
+    #
     # TTJets_TuneCP5
     # # TTJets_SingleLeptFromT
     # # TTJets_SingleLeptFromTbar
@@ -95,18 +95,18 @@ dataset_names=(
     # TTJets_HT-1200to2500
     # TTJets_HT-2500toInf
 
-    # #
-    # # WJets
-    # #
+    #
+    # WJets
+    #
     # WJetsToLNu_HT-400To600
     # WJetsToLNu_HT-600To800
     # WJetsToLNu_HT-800To1200
     # WJetsToLNu_HT-1200To2500
     # WJetsToLNu_HT-2500ToInf
 
-    # #
-    # # ZJets
-    # #
+    #
+    # ZJets
+    #
     # ZJetsToNuNu_HT-400To600
     # ZJetsToNuNu_HT-600To800
     # ZJetsToNuNu_HT-800To1200
@@ -116,10 +116,10 @@ dataset_names=(
     #
     # Data
     #
-    # Run2017C
-    # Run2017D
-    # Run2017E
-    # Run2017F
+    Run2017C
+    Run2017D
+    Run2017E
+    Run2017F
 
     # Run2018A
     # Run2018B

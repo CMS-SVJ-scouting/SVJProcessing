@@ -555,9 +555,98 @@ def build_jet_and_corrections():
             ],
             jec_name_map=jec_name_map,
         ),
+        # No-residuals data keys (L1+L2+L3 only, no L2L3Residual) for --disable_residuals testing
+        "2016preVFPdataBCDNOJERNORES": jet_factory_factory(
+            files=[
+                "Summer16_07Aug2017BCD_V11_DATA_L1FastJet_AK4PF.jec.txt",
+                "Summer16_07Aug2017BCD_V11_DATA_L2Relative_AK4PF.jec.txt",
+                "Summer16_07Aug2017BCD_V11_DATA_L3Absolute_AK4PF.jec.txt",
+            ],
+            jec_name_map=jec_name_map,
+        ),
+        "2016postVFPdataEFNOJERNORES": jet_factory_factory(
+            files=[
+                "Summer16_07Aug2017EF_V11_DATA_L1FastJet_AK4PF.jec.txt",
+                "Summer16_07Aug2017EF_V11_DATA_L2Relative_AK4PF.jec.txt",
+                "Summer16_07Aug2017EF_V11_DATA_L3Absolute_AK4PF.jec.txt",
+            ],
+            jec_name_map=jec_name_map,
+        ),
+        "2016postVFPdataGHNOJERNORES": jet_factory_factory(
+            files=[
+                "Summer16_07Aug2017GH_V11_DATA_L1FastJet_AK4PF.jec.txt",
+                "Summer16_07Aug2017GH_V11_DATA_L2Relative_AK4PF.jec.txt",
+                "Summer16_07Aug2017GH_V11_DATA_L3Absolute_AK4PF.jec.txt",
+            ],
+            jec_name_map=jec_name_map,
+        ),
+        "2017dataBNOJERNORES": jet_factory_factory(
+            files=[
+                "Fall17_17Nov2017B_V32_DATA_L1FastJet_AK4PF.jec.txt",
+                "Fall17_17Nov2017B_V32_DATA_L2Relative_AK4PF.jec.txt",
+                "Fall17_17Nov2017B_V32_DATA_L3Absolute_AK4PF.jec.txt",
+            ],
+            jec_name_map=jec_name_map,
+        ),
+        "2017dataCNOJERNORES": jet_factory_factory(
+            files=[
+                "Fall17_17Nov2017C_V32_DATA_L1FastJet_AK4PF.jec.txt",
+                "Fall17_17Nov2017C_V32_DATA_L2Relative_AK4PF.jec.txt",
+                "Fall17_17Nov2017C_V32_DATA_L3Absolute_AK4PF.jec.txt",
+            ],
+            jec_name_map=jec_name_map,
+        ),
+        "2017dataDENOJERNORES": jet_factory_factory(
+            files=[
+                "Fall17_17Nov2017DE_V32_DATA_L1FastJet_AK4PF.jec.txt",
+                "Fall17_17Nov2017DE_V32_DATA_L2Relative_AK4PF.jec.txt",
+                "Fall17_17Nov2017DE_V32_DATA_L3Absolute_AK4PF.jec.txt",
+            ],
+            jec_name_map=jec_name_map,
+        ),
+        "2017dataFNOJERNORES": jet_factory_factory(
+            files=[
+                "Fall17_17Nov2017F_V32_DATA_L1FastJet_AK4PF.jec.txt",
+                "Fall17_17Nov2017F_V32_DATA_L2Relative_AK4PF.jec.txt",
+                "Fall17_17Nov2017F_V32_DATA_L3Absolute_AK4PF.jec.txt",
+            ],
+            jec_name_map=jec_name_map,
+        ),
+        "2018dataRunANOJERNORES": jet_factory_factory(
+            files=[
+                "Autumn18_RunA_V19_DATA_L1FastJet_AK4PF.jec.txt",
+                "Autumn18_RunA_V19_DATA_L2Relative_AK4PF.jec.txt",
+                "Autumn18_RunA_V19_DATA_L3Absolute_AK4PF.jec.txt",
+            ],
+            jec_name_map=jec_name_map,
+        ),
+        "2018dataRunBNOJERNORES": jet_factory_factory(
+            files=[
+                "Autumn18_RunB_V19_DATA_L1FastJet_AK4PF.jec.txt",
+                "Autumn18_RunB_V19_DATA_L2Relative_AK4PF.jec.txt",
+                "Autumn18_RunB_V19_DATA_L3Absolute_AK4PF.jec.txt",
+            ],
+            jec_name_map=jec_name_map,
+        ),
+        "2018dataRunCNOJERNORES": jet_factory_factory(
+            files=[
+                "Autumn18_RunC_V19_DATA_L1FastJet_AK4PF.jec.txt",
+                "Autumn18_RunC_V19_DATA_L2Relative_AK4PF.jec.txt",
+                "Autumn18_RunC_V19_DATA_L3Absolute_AK4PF.jec.txt",
+            ],
+            jec_name_map=jec_name_map,
+        ),
+        "2018dataRunDNOJERNORES": jet_factory_factory(
+            files=[
+                "Autumn18_RunD_V19_DATA_L1FastJet_AK4PF.jec.txt",
+                "Autumn18_RunD_V19_DATA_L2Relative_AK4PF.jec.txt",
+                "Autumn18_RunD_V19_DATA_L3Absolute_AK4PF.jec.txt",
+            ],
+            jec_name_map=jec_name_map,
+        ),
     }
 
-    
+
     fatjet_factory = {
         "2016preVFPmc": jet_factory_factory(
             files=[
@@ -785,8 +874,97 @@ def build_jet_and_corrections():
             ],
             jec_name_map=jec_name_map,
         ),
+        # No-residuals data keys (L1+L2+L3 only, no L2L3Residual) for --disable_residuals testing
+        "2016preVFPdataBCDNOJERNORES": jet_factory_factory(
+            files=[
+                "Summer16_07Aug2017BCD_V11_DATA_L1FastJet_AK8PF.jec.txt",
+                "Summer16_07Aug2017BCD_V11_DATA_L2Relative_AK8PF.jec.txt",
+                "Summer16_07Aug2017BCD_V11_DATA_L3Absolute_AK8PF.jec.txt",
+            ],
+            jec_name_map=jec_name_map,
+        ),
+        "2016postVFPdataEFNOJERNORES": jet_factory_factory(
+            files=[
+                "Summer16_07Aug2017EF_V11_DATA_L1FastJet_AK8PF.jec.txt",
+                "Summer16_07Aug2017EF_V11_DATA_L2Relative_AK8PF.jec.txt",
+                "Summer16_07Aug2017EF_V11_DATA_L3Absolute_AK8PF.jec.txt",
+            ],
+            jec_name_map=jec_name_map,
+        ),
+        "2016postVFPdataGHNOJERNORES": jet_factory_factory(
+            files=[
+                "Summer16_07Aug2017GH_V11_DATA_L1FastJet_AK8PF.jec.txt",
+                "Summer16_07Aug2017GH_V11_DATA_L2Relative_AK8PF.jec.txt",
+                "Summer16_07Aug2017GH_V11_DATA_L3Absolute_AK8PF.jec.txt",
+            ],
+            jec_name_map=jec_name_map,
+        ),
+        "2017dataBNOJERNORES": jet_factory_factory(
+            files=[
+                "Fall17_17Nov2017B_V32_DATA_L1FastJet_AK8PF.jec.txt",
+                "Fall17_17Nov2017B_V32_DATA_L2Relative_AK8PF.jec.txt",
+                "Fall17_17Nov2017B_V32_DATA_L3Absolute_AK8PF.jec.txt",
+            ],
+            jec_name_map=jec_name_map,
+        ),
+        "2017dataCNOJERNORES": jet_factory_factory(
+            files=[
+                "Fall17_17Nov2017C_V32_DATA_L1FastJet_AK8PF.jec.txt",
+                "Fall17_17Nov2017C_V32_DATA_L2Relative_AK8PF.jec.txt",
+                "Fall17_17Nov2017C_V32_DATA_L3Absolute_AK8PF.jec.txt",
+            ],
+            jec_name_map=jec_name_map,
+        ),
+        "2017dataDENOJERNORES": jet_factory_factory(
+            files=[
+                "Fall17_17Nov2017DE_V32_DATA_L1FastJet_AK8PF.jec.txt",
+                "Fall17_17Nov2017DE_V32_DATA_L2Relative_AK8PF.jec.txt",
+                "Fall17_17Nov2017DE_V32_DATA_L3Absolute_AK8PF.jec.txt",
+            ],
+            jec_name_map=jec_name_map,
+        ),
+        "2017dataFNOJERNORES": jet_factory_factory(
+            files=[
+                "Fall17_17Nov2017F_V32_DATA_L1FastJet_AK8PF.jec.txt",
+                "Fall17_17Nov2017F_V32_DATA_L2Relative_AK8PF.jec.txt",
+                "Fall17_17Nov2017F_V32_DATA_L3Absolute_AK8PF.jec.txt",
+            ],
+            jec_name_map=jec_name_map,
+        ),
+        "2018dataRunANOJERNORES": jet_factory_factory(
+            files=[
+                "Autumn18_RunA_V19_DATA_L1FastJet_AK8PF.jec.txt",
+                "Autumn18_RunA_V19_DATA_L2Relative_AK8PF.jec.txt",
+                "Autumn18_RunA_V19_DATA_L3Absolute_AK8PF.jec.txt",
+            ],
+            jec_name_map=jec_name_map,
+        ),
+        "2018dataRunBNOJERNORES": jet_factory_factory(
+            files=[
+                "Autumn18_RunB_V19_DATA_L1FastJet_AK8PF.jec.txt",
+                "Autumn18_RunB_V19_DATA_L2Relative_AK8PF.jec.txt",
+                "Autumn18_RunB_V19_DATA_L3Absolute_AK8PF.jec.txt",
+            ],
+            jec_name_map=jec_name_map,
+        ),
+        "2018dataRunCNOJERNORES": jet_factory_factory(
+            files=[
+                "Autumn18_RunC_V19_DATA_L1FastJet_AK8PF.jec.txt",
+                "Autumn18_RunC_V19_DATA_L2Relative_AK8PF.jec.txt",
+                "Autumn18_RunC_V19_DATA_L3Absolute_AK8PF.jec.txt",
+            ],
+            jec_name_map=jec_name_map,
+        ),
+        "2018dataRunDNOJERNORES": jet_factory_factory(
+            files=[
+                "Autumn18_RunD_V19_DATA_L1FastJet_AK8PF.jec.txt",
+                "Autumn18_RunD_V19_DATA_L2Relative_AK8PF.jec.txt",
+                "Autumn18_RunD_V19_DATA_L3Absolute_AK8PF.jec.txt",
+            ],
+            jec_name_map=jec_name_map,
+        ),
     }
-    
+
     met_factory = CorrectedMETFactory(jec_name_map)
 
     return jet_factory, fatjet_factory, met_factory

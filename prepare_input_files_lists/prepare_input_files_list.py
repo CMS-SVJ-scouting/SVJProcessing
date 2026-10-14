@@ -102,7 +102,12 @@ def __prepare_input_files_list(
             
     output_directory_ = f"{output_directory}/skim_input_files_list/{year}/{selection}/{dataset}"
     Path(output_directory_).mkdir(parents=True, exist_ok=True)
-        
+
+    # Remove chunks from a previous run, otherwise leftover part-N.txt beyond
+    # the new number of chunks would duplicate input files in the skims
+    for old_file in Path(output_directory_).glob("part-*.txt"):
+        old_file.unlink()
+
     n_input_files = 0
     for x in output_files_list: n_input_files += len(x)
     n_output_files = len(output_files_list)

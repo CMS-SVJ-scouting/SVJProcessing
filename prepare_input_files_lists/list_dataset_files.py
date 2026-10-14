@@ -100,6 +100,9 @@ def __list_files(dataset_info, nano_aod):
 def __get_number_of_events(file_name, tree_name):
     
     file_ = uproot.open(file_name)
+    if tree_name not in file_:
+        log.warning(f"{tree_name} not found in {file_name}, skipping file.")
+        return None
     events = file_[tree_name]
     f0 = events.keys()[0]
     return events[f0].num_entries
@@ -139,6 +142,8 @@ def __write_dataset_info(
         writer = csv.writer(output_file)
         writer.writerow(header)
         for file_name, n_events in zip(files_list, number_of_events):
+            if n_events is None:
+                continue
             writer.writerow([file_name, n_events])
 
     log.info(f"{output_file_name} was written.")

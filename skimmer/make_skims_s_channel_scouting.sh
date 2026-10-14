@@ -33,6 +33,7 @@ year=2018
 
 add_weights_variations=1  # 1 to add PDF/scale weight variations, 0 else
 apply_scouting_jec=1      # 1 to apply custom scouting JECs, 0 to disable
+apply_jer=1               # 1 to apply JER smearing for MC, 0 to disable
 
 variations=(
     nominal
@@ -289,6 +290,11 @@ make_skims() {
                     else
                         scouting_jec_flag="--disable_scouting_jec"
                     fi
+                    if [ "${apply_jer}" == "1" ]; then
+                        jer_flag=""
+                    else
+                        jer_flag="--disable_jer"
+                    fi
                     if [ "${variation}" == "nominal" ]; then
                         variation_flag=""
                     else
@@ -299,7 +305,7 @@ make_skims() {
                     else
                         weight_variation_flag=""
                     fi
-                    python skim.py -i ${input_files} -o ${output_file_tmp} -p ${module} -pd ${dataset_name} -y ${year} -nano_scout -mc -xsec ${xsec} -corrfile ${pfnano_corrections_file} -e ${EXECUTOR} -port ${PORT} -n ${N_WORKERS} -c ${CHUNK_SIZE} --memory ${MEMORY} --cores ${CORES} -pn_tagger ${variation_flag} ${weight_variation_flag} ${scouting_jec_flag} #-lund
+                    python skim.py -i ${input_files} -o ${output_file_tmp} -p ${module} -pd ${dataset_name} -y ${year} -nano_scout -mc -xsec ${xsec} -corrfile ${pfnano_corrections_file} -e ${EXECUTOR} -port ${PORT} -n ${N_WORKERS} -c ${CHUNK_SIZE} --memory ${MEMORY} --cores ${CORES} -pn_tagger ${variation_flag} ${weight_variation_flag} ${scouting_jec_flag} ${jer_flag} #-lund
                     #python skim.py -i ${input_files} -o ${output_file_tmp} -p ${module} -pd ${dataset_name} -y ${year} -nano_scout -mc -xsec ${xsec} -corrfile ${pfnano_corrections_file} -e ${EXECUTOR} -port ${PORT} -n ${N_WORKERS} -c ${CHUNK_SIZE} --memory ${MEMORY} --cores ${CORES} -pn_tagger ${variation_flag} ${weight_variation_flag}
                     xrdcp -f ${output_file_tmp} ${output_file}
                     echo ${output_file} has been saved.
